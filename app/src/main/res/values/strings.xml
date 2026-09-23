@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Orki AI</string>
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_subtitle">Start chatting with Orki AI</string>
+    <string name="input_placeholder">Message Orki…</string>
+    <string name="new_chat">New Chat</string>
+    <string name="conversations">Conversations</string>
+    <string name="daily_quota">Daily Quota</string>
+    <string name="disclaimer">Orki AI can make mistakes. Always double check.</string>
+</resources>
+
