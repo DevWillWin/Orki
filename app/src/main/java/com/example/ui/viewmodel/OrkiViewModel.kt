@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
 import com.example.data.audio.AudioManager
 import com.example.data.audio.AudioPlayerState
 import com.example.data.billing.PlayBillingManager
@@ -13,6 +14,8 @@ import com.example.data.local.ConversationEntity
 import com.example.data.network.OrkiApiService
 import com.example.data.preferences.UserPreferences
 import com.example.data.preferences.VoiceOptions
+import com.example.util.AttachedFile
+import com.example.util.FileUploadHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +52,10 @@ data class UiState(
     val currentPlan: String = "Free",
     val dailyUsage: Int = 0,
     val dailyLimit: Int = 20,
+    val dailyUploadUsage: Int = 0,
+    val dailyUploadLimit: Int = 2,
+    val attachedFile: AttachedFile? = null,
+    val isProcessingFile: Boolean = false,
     val selectedModel: String = "orki-3.0",
     val selectedVoice: String = "female_mainao",
     val isIncognito: Boolean = false,
@@ -56,7 +63,8 @@ data class UiState(
     val isEmailVerified: Boolean = true,
     val authMethod: String = "Google",
     val userEmail: String = "devmightwin@gmail.com",
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val triggerUpgradeDialog: Boolean = false
 )
 
 class OrkiViewModel(application: Application) : AndroidViewModel(application) {
@@ -84,6 +92,8 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
             currentPlan = prefs.currentPlan,
             dailyUsage = prefs.getDailyUsage(),
             dailyLimit = prefs.getDailyLimit(prefs.currentPlan),
+            dailyUploadUsage = prefs.getDailyUploadUsage(),
+            dailyUploadLimit = prefs.getDailyUploadLimit(prefs.currentPlan),
             selectedModel = prefs.selectedModel,
             selectedVoice = prefs.selectedVoice,
             isIncognito = prefs.isIncognito,
@@ -250,10 +260,58 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     fun upgradePlan(plan: String) {
         prefs.currentPlan = plan
         val newLimit = prefs.getDailyLimit(plan)
+        val newUploadLimit = prefs.getDailyUploadLimit(plan)
         _uiState.value = _uiState.value.copy(
             currentPlan = plan,
-            dailyLimit = newLimit
+            dailyLimit = newLimit,
+            dailyUploadLimit = newUploadLimit
         )
+    }
+
+    fun attachFile(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isProcessingFile = true)
+            val attached = FileUploadHelper.processUri(getApplication(), uri)
+            if (attached != null) {
+                _uiState.value = _uiState.value.copy(
+                    attachedFile = attached,
+                    isProcessingFile = false
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isProcessingFile = false,
+                    errorMessage = "Could not process file. Please select a valid Image, TXT, or PDF file."
+                )
+            }
+        }
+    }
+
+    fun removeAttachedFile() {
+        _uiState.value = _uiState.value.copy(attachedFile = null)
+    }
+
+    fun checkUploadQuota(): Boolean {
+        if (!prefs.canUpload(_uiState.value.currentPlan)) {
+            val limit = prefs.getDailyUploadLimit(_uiState.value.currentPlan)
+            val plan = _uiState.value.currentPlan
+            val msg = if (plan == "Free") {
+                "Free upload limit reached ($limit/2 uploads used today). Upgrade to Plus or Pro for more uploads!"
+            } else if (plan == "Guest") {
+                "Uploads require an active plan. Sign in or upgrade to upload files."
+            } else {
+                "$plan upload limit of $limit reached today. Upgrade to Pro for maximum uploads!"
+            }
+            _uiState.value = _uiState.value.copy(
+                errorMessage = msg,
+                triggerUpgradeDialog = true
+            )
+            return false
+        }
+        return true
+    }
+
+    fun clearTriggerUpgradeDialog() {
+        _uiState.value = _uiState.value.copy(triggerUpgradeDialog = false)
     }
 
     fun clearErrorMessage() {
@@ -273,15 +331,35 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendMessage(userText: String) {
+        val attachment = _uiState.value.attachedFile
         val trimmed = userText.trim()
-        if (trimmed.isEmpty() || _uiState.value.isGenerating) return
+        if (trimmed.isEmpty() && attachment == null) return
+        if (_uiState.value.isGenerating) return
+
         if (!checkQuota()) return
+
+        if (attachment != null) {
+            if (!checkUploadQuota()) return
+        }
+
+        val promptText = if (trimmed.isNotEmpty()) {
+            trimmed
+        } else when (attachment?.fileType) {
+            "image" -> "Please analyze this image and explain what you see."
+            "pdf" -> "Please summarize and explain the key details of this PDF document."
+            "txt" -> "Please analyze and summarize this text file."
+            else -> "Please analyze this attachment."
+        }
 
         val userMessage = ChatMessageEntity(
             id = UUID.randomUUID().toString(),
             conversationId = _uiState.value.currentConversationId ?: "",
             role = "user",
-            text = trimmed,
+            text = promptText,
+            attachmentName = attachment?.name,
+            attachmentType = attachment?.fileType,
+            attachmentSize = attachment?.sizeBytes,
+            attachmentUri = attachment?.uri?.toString(),
             timestamp = System.currentTimeMillis()
         )
 
@@ -290,10 +368,16 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
             messages = updatedMessages,
             isGenerating = true,
             isThinking = true,
-            currentStreamingResponse = ""
+            currentStreamingResponse = "",
+            attachedFile = null
         )
 
-        executeStreamingChat(updatedMessages, null)
+        executeStreamingChat(
+            conversationSnapshot = updatedMessages,
+            audioPayload = null,
+            attachmentPayload = attachment,
+            liveMode = false
+        )
     }
 
     fun startVoiceRecording(liveMode: Boolean = false) {
@@ -366,12 +450,18 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
             liveTalkTranscript = if (liveMode) "Thinking…" else ""
         )
 
-        executeStreamingChat(updatedMessages, Pair(base64Audio, mimeType), liveMode)
+        executeStreamingChat(
+            conversationSnapshot = updatedMessages,
+            audioPayload = Pair(base64Audio, mimeType),
+            attachmentPayload = null,
+            liveMode = liveMode
+        )
     }
 
     private fun executeStreamingChat(
         conversationSnapshot: List<ChatMessageEntity>,
         audioPayload: Pair<String, String>?,
+        attachmentPayload: AttachedFile? = null,
         liveMode: Boolean = false
     ) {
         activeStreamJob?.cancel()
@@ -413,6 +503,25 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
                     parts.put(audioObj)
                     val promptText = "1. Transcribe accurately.\n2. Formulate conversational reply as Orki.\nConstraint: $scriptConstraint$livePromptConstraint\n\nOutput MUST strictly follow:\nTRANSCRIPTION: <exact words>\nRESPONSE: <reply>"
                     parts.put(JSONObject().apply { put("text", promptText) })
+                } else if (isLastMsg && attachmentPayload != null) {
+                    if ((attachmentPayload.fileType == "image" || attachmentPayload.fileType == "pdf") && attachmentPayload.base64Data != null) {
+                        val fileObj = JSONObject().apply {
+                            put("inlineData", JSONObject().apply {
+                                put("mimeType", attachmentPayload.mimeType)
+                                put("data", attachmentPayload.base64Data)
+                            })
+                        }
+                        parts.put(fileObj)
+                        val promptText = "Attached file: ${attachmentPayload.name} (${attachmentPayload.fileType.uppercase()})\n${msg.text}" + scriptConstraint + livePromptConstraint
+                        parts.put(JSONObject().apply { put("text", promptText) })
+                    } else if (attachmentPayload.fileType == "txt") {
+                        val promptText = "[Document: ${attachmentPayload.name}]\n" +
+                                (attachmentPayload.textContent ?: "") +
+                                "\n[End of Document]\n\n" + msg.text + scriptConstraint + livePromptConstraint
+                        parts.put(JSONObject().apply { put("text", promptText) })
+                    } else {
+                        parts.put(JSONObject().apply { put("text", msg.text + scriptConstraint + livePromptConstraint) })
+                    }
                 } else {
                     val textWithConstraint = if (isLastMsg && msg.role == "user") {
                         msg.text + scriptConstraint + livePromptConstraint
@@ -493,12 +602,14 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
                 finalizedMessages.add(modelMessage)
 
                 val newUsage = prefs.incrementDailyUsage()
+                val newUploadUsage = if (attachmentPayload != null) prefs.incrementDailyUploadUsage() else prefs.getDailyUploadUsage()
                 _uiState.value = _uiState.value.copy(
                     messages = finalizedMessages,
                     isGenerating = false,
                     isThinking = false,
                     currentStreamingResponse = "",
-                    dailyUsage = newUsage
+                    dailyUsage = newUsage,
+                    dailyUploadUsage = newUploadUsage
                 )
 
                 // Persist to Room if not incognito

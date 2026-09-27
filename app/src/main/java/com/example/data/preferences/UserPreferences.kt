@@ -151,6 +151,20 @@ class UserPreferences(context: Context) {
         get() = prefs.getString("user_email", "devmightwin@gmail.com") ?: "devmightwin@gmail.com"
         set(value) = prefs.edit().putString("user_email", value).apply()
 
+    fun getPasswordForEmail(email: String): String? {
+        val key = "user_pwd_" + email.lowercase().trim()
+        return prefs.getString(key, null)
+    }
+
+    fun hasPassword(email: String): Boolean {
+        return getPasswordForEmail(email) != null
+    }
+
+    fun setPasswordForEmail(email: String, pwd: String) {
+        val key = "user_pwd_" + email.lowercase().trim()
+        prefs.edit().putString(key, pwd).apply()
+    }
+
     private fun getTodayString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     }
@@ -183,5 +197,40 @@ class UserPreferences(context: Context) {
             "Pro" -> 150
             else -> 15
         }
+    }
+
+    fun getDailyUploadUsage(): Int {
+        val today = getTodayString()
+        val lastDate = prefs.getString("upload_usage_date", "") ?: ""
+        return if (lastDate == today) {
+            prefs.getInt("upload_usage_count", 0)
+        } else {
+            prefs.edit().putString("upload_usage_date", today).putInt("upload_usage_count", 0).apply()
+            0
+        }
+    }
+
+    fun incrementDailyUploadUsage(): Int {
+        val today = getTodayString()
+        val lastDate = prefs.getString("upload_usage_date", "") ?: ""
+        val current = if (lastDate == today) prefs.getInt("upload_usage_count", 0) else 0
+        val updated = current + 1
+        prefs.edit().putString("upload_usage_date", today).putInt("upload_usage_count", updated).apply()
+        return updated
+    }
+
+    fun getDailyUploadLimit(plan: String): Int {
+        return when (plan) {
+            "Guest" -> 0
+            "Free" -> 2   // User request: Free tier is capped at exactly 2 uploads
+            "Plus" -> 20  // Plus tier: 20 uploads
+            "Pro" -> 100  // Pro tier: 100 uploads
+            else -> 2
+        }
+    }
+
+    fun canUpload(plan: String): Boolean {
+        val limit = getDailyUploadLimit(plan)
+        return getDailyUploadUsage() < limit
     }
 }

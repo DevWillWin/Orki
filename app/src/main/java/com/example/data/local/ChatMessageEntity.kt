@@ -23,5 +23,9 @@ data class ChatMessageEntity(
     val role: String, // "user" or "model"
     val text: String,
     val ttsText: String? = null,
+    val attachmentName: String? = null,
+    val attachmentType: String? = null, // "image", "pdf", "txt"
+    val attachmentSize: Long? = null,
+    val attachmentUri: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )

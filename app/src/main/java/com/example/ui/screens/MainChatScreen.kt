@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -41,11 +42,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -75,6 +81,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -83,6 +90,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.ChatMessageEntity
 import com.example.data.preferences.UiTranslations
+import com.example.ui.components.AttachmentPickerDialog
 import com.example.ui.components.AudioPlayerPill
 import com.example.ui.components.ChatMessageItem
 import com.example.ui.components.DrawerContent
@@ -128,8 +136,35 @@ fun MainChatScreen(
     var showUpgradeDialog by remember { mutableStateOf(false) }
     var showLoginDialog by remember { mutableStateOf(false) }
     var showModelDropdown by remember { mutableStateOf(false) }
+    var showAttachMenu by remember { mutableStateOf(false) }
 
     val strings = UiTranslations.get(uiState.uiLanguage)
+
+    // Trigger upgrade dialog if quota exceeded
+    LaunchedEffect(uiState.triggerUpgradeDialog) {
+        if (uiState.triggerUpgradeDialog) {
+            showUpgradeDialog = true
+            viewModel.clearTriggerUpgradeDialog()
+        }
+    }
+
+    // Photo Picker Launcher (PickVisualMedia - Zero-permission, Google Play Policy Compliant)
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.attachFile(uri)
+        }
+    }
+
+    // Document Picker Launcher (OpenDocument - Zero-permission SAF for PDF and TXT)
+    val docPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.attachFile(uri)
+        }
+    }
 
     // Scroll to bottom when new messages arrive or when response streams
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingResponse) {
@@ -195,6 +230,8 @@ fun MainChatScreen(
                 currentPlan = uiState.currentPlan,
                 dailyUsage = uiState.dailyUsage,
                 dailyLimit = uiState.dailyLimit,
+                dailyUploadUsage = uiState.dailyUploadUsage,
+                dailyUploadLimit = uiState.dailyUploadLimit,
                 isIncognito = uiState.isIncognito,
                 isLoggedIn = uiState.isLoggedIn,
                 userEmail = uiState.userEmail,
@@ -397,25 +434,134 @@ fun MainChatScreen(
                         .imePadding()
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
+                    // Attached File Preview Pill
+                    AnimatedVisibility(visible = uiState.attachedFile != null) {
+                        uiState.attachedFile?.let { file ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 6.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF141A17))
+                                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(
+                                                when (file.fileType) {
+                                                    "image" -> Color(0x3310B981)
+                                                    "pdf" -> Color(0x33EF4444)
+                                                    else -> Color(0x3338BDF8)
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = when (file.fileType) {
+                                                "image" -> Icons.Default.Image
+                                                "pdf" -> Icons.Default.PictureAsPdf
+                                                else -> Icons.Default.Description
+                                            },
+                                            contentDescription = null,
+                                            tint = when (file.fileType) {
+                                                "image" -> EmeraldAccent
+                                                "pdf" -> Color(0xFFF87171)
+                                                else -> Color(0xFF38BDF8)
+                                            },
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = file.name,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${file.formattedSize} • Ready to send",
+                                            fontSize = 10.sp,
+                                            color = EmeraldAccent
+                                        )
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { viewModel.removeAttachedFile() },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove file",
+                                        tint = TextMuted,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(26.dp))
                             .background(Color(0xFF171917))
                             .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Attach File '+' Button
+                            IconButton(
+                                onClick = {
+                                    if (!viewModel.checkUploadQuota()) {
+                                        showUpgradeDialog = true
+                                    } else {
+                                        showAttachMenu = true
+                                    }
+                                },
+                                modifier = Modifier
+                                    .testTag("attach_button")
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (uiState.attachedFile != null) Color(0x2810B981) else Color(0x1F27272A))
+                            ) {
+                                if (uiState.isProcessingFile) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = EmeraldAccent
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Attach File",
+                                        tint = if (uiState.attachedFile != null) EmeraldAccent else TextSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
                             // Text Input Field
                             OutlinedTextField(
                                 value = inputText,
                                 onValueChange = { inputText = it },
                                 placeholder = {
                                     Text(
-                                        text = strings.inputPlaceholder,
+                                        text = if (uiState.attachedFile != null) "Ask about this file or send…" else strings.inputPlaceholder,
                                         fontSize = 14.sp,
                                         color = TextMuted
                                     )
@@ -484,13 +630,13 @@ fun MainChatScreen(
                                 }
 
                                 // Send or Stop Button
-                                val hasText = inputText.isNotBlank()
+                                val canSend = inputText.isNotBlank() || uiState.attachedFile != null
                                 IconButton(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         if (uiState.isGenerating) {
                                             viewModel.cancelGeneration()
-                                        } else if (hasText) {
+                                        } else if (canSend) {
                                             viewModel.sendMessage(inputText)
                                             inputText = ""
                                         }
@@ -501,14 +647,14 @@ fun MainChatScreen(
                                         .clip(CircleShape)
                                         .background(
                                             if (uiState.isGenerating) Color(0xFFDC2626)
-                                            else if (hasText) EmeraldPrimary
+                                            else if (canSend) EmeraldPrimary
                                             else Color(0x2627272A)
                                         )
                                 ) {
                                     Icon(
                                         imageVector = if (uiState.isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                                         contentDescription = if (uiState.isGenerating) "Stop" else "Send",
-                                        tint = if (hasText || uiState.isGenerating) Color.White else TextMuted,
+                                        tint = if (canSend || uiState.isGenerating) Color.White else TextMuted,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -744,6 +890,28 @@ fun MainChatScreen(
                     snackbarHostState.showSnackbar("Verified & signed in via $method ($email)")
                 }
             }
+        )
+    }
+
+    // Attachment Picker Dialog (Image, PDF, TXT)
+    if (showAttachMenu) {
+        AttachmentPickerDialog(
+            currentPlan = uiState.currentPlan,
+            dailyUploadUsage = uiState.dailyUploadUsage,
+            dailyUploadLimit = uiState.dailyUploadLimit,
+            onSelectImage = {
+                imagePickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
+            onSelectPdf = {
+                docPickerLauncher.launch(arrayOf("application/pdf"))
+            },
+            onSelectText = {
+                docPickerLauncher.launch(arrayOf("text/plain", "text/*"))
+            },
+            onDismiss = { showAttachMenu = false },
+            onUpgradeClick = { showUpgradeDialog = true }
         )
     }
 }

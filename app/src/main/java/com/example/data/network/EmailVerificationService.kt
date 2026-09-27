@@ -22,16 +22,9 @@ import java.util.concurrent.TimeUnit
  */
 class EmailVerificationService(private val context: Context) {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .build()
-
-    private val secureRandom = SecureRandom()
-    private val prefs = context.getSharedPreferences("orki_email_verification", Context.MODE_PRIVATE)
-
     companion object {
         private const val TAG = "EmailVerification"
+        const val DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwt4aNQATHjVqZkXkGzQOPbOIplDsid2txx5RmY0XZ_YUbFIHtg-jzg1KqJ7ClUtvkcrA/exec"
         private const val PREF_RESEND_API_KEY = "resend_api_key"
         private const val PREF_CUSTOM_WEBHOOK_URL = "custom_webhook_url"
         private const val PREF_LAST_GENERATED_OTP = "last_otp"
@@ -39,6 +32,16 @@ class EmailVerificationService(private val context: Context) {
         private const val PREF_OTP_TIMESTAMP = "last_otp_timestamp"
         private const val OTP_EXPIRY_MS = 10 * 60 * 1000L // 10 minutes
     }
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(25, TimeUnit.SECONDS)
+        .readTimeout(25, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+
+    private val secureRandom = SecureRandom()
+    private val prefs = context.getSharedPreferences("orki_email_verification", Context.MODE_PRIVATE)
 
     data class SendResult(
         val success: Boolean,
@@ -59,10 +62,11 @@ class EmailVerificationService(private val context: Context) {
     }
 
     /**
-     * Get or set custom webhook URL
+     * Get or set custom webhook / Google Apps Script URL
      */
     fun getCustomWebhookUrl(): String {
-        return prefs.getString(PREF_CUSTOM_WEBHOOK_URL, "") ?: ""
+        val stored = prefs.getString(PREF_CUSTOM_WEBHOOK_URL, null)
+        return if (stored != null) stored else DEFAULT_WEBHOOK_URL
     }
 
     fun setCustomWebhookUrl(url: String) {
@@ -87,32 +91,47 @@ class EmailVerificationService(private val context: Context) {
         val resendKey = getResendApiKey()
         val customWebhook = getCustomWebhookUrl()
 
-        // 1. If custom webhook is configured, dispatch via POST
+        // 1. If custom webhook / Google Apps Script is configured, dispatch via POST
         if (customWebhook.isNotBlank()) {
             try {
                 val json = JSONObject().apply {
                     put("email", cleanEmail)
                     put("name", recipientName)
                     put("code", code)
-                    put("subject", "Your Orki AI Verification Code: $code")
+                    put("subject", "$code is your Orki AI verification code")
                 }
-                val body = json.toString().toRequestBody("application/json".toMediaType())
+
+                // If calling Google Apps Script, pass query params as well for maximum script compatibility
+                val finalUrl = if (customWebhook.contains("script.google.com")) {
+                    val encodedEmail = java.net.URLEncoder.encode(cleanEmail, "UTF-8")
+                    val encodedCode = java.net.URLEncoder.encode(code, "UTF-8")
+                    val encodedName = java.net.URLEncoder.encode(recipientName, "UTF-8")
+                    val separator = if (customWebhook.contains("?")) "&" else "?"
+                    "$customWebhook${separator}email=$encodedEmail&code=$encodedCode&name=$encodedName"
+                } else {
+                    customWebhook
+                }
+
+                val body = json.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                 val request = Request.Builder()
-                    .url(customWebhook)
+                    .url(finalUrl)
                     .post(body)
                     .build()
 
                 val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    Log.i(TAG, "OTP dispatched via custom webhook to $cleanEmail")
+                val responseBody = response.body?.string() ?: ""
+                Log.i(TAG, "Webhook response: ${response.code} $responseBody")
+
+                if (response.isSuccessful || response.code in 200..399) {
+                    Log.i(TAG, "OTP dispatched via webhook/Apps Script to $cleanEmail")
                     return@withContext SendResult(
                         success = true,
-                        message = "Verification code sent to $cleanEmail. Check your inbox and spam folder.",
+                        message = "Verification code sent to $cleanEmail! Check your inbox (and spam folder).",
                         isRealEmailDispatched = true,
                         generatedCode = code
                     )
                 } else {
-                    Log.w(TAG, "Custom webhook returned ${response.code}: ${response.message}")
+                    Log.w(TAG, "Custom webhook returned ${response.code}: $responseBody")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed sending to webhook: ${e.message}", e)

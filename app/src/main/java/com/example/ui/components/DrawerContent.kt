@@ -65,6 +65,8 @@ fun DrawerContent(
     currentPlan: String,
     dailyUsage: Int,
     dailyLimit: Int,
+    dailyUploadUsage: Int = 0,
+    dailyUploadLimit: Int = 2,
     isIncognito: Boolean,
     isLoggedIn: Boolean = true,
     userEmail: String = "devmightwin@gmail.com",
@@ -396,6 +398,52 @@ fun DrawerContent(
                                     Brush.horizontalGradient(
                                         if (currentPlan == "Pro") listOf(AmberPro, Color(0xFFFDE047))
                                         else listOf(EmeraldPrimary, EmeraldAccent)
+                                    )
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Daily Uploads",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "$dailyUploadUsage / $dailyUploadLimit",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (dailyUploadUsage >= dailyUploadLimit) Color(0xFFEF4444) else TextSecondary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val uploadProgress = if (dailyUploadLimit <= 0) 0f
+                    else (dailyUploadUsage.toFloat() / dailyUploadLimit.toFloat()).coerceIn(0f, 1f)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(DarkSurfaceVariant)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(uploadProgress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        if (currentPlan == "Pro") listOf(AmberPro, Color(0xFFFDE047))
+                                        else listOf(Color(0xFF38BDF8), EmeraldAccent)
                                     )
                                 )
                         )

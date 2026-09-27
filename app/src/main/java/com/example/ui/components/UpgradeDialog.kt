@@ -170,6 +170,7 @@ fun UpgradeDialog(
 
                         Spacer(modifier = Modifier.height(6.dp))
                         PlanFeature("✓ 1,500 Messages / month (50/day)")
+                        PlanFeature("✓ 20 File Uploads / day (Images, TXT, PDF)")
                         PlanFeature("✓ 2X Context Memory Recall")
                         PlanFeature("✓ Full High-Quality Voice Access")
 
@@ -245,6 +246,7 @@ fun UpgradeDialog(
                         Spacer(modifier = Modifier.height(6.dp))
                         PlanFeature("⚡ Okafwr 2.1 Deep Reasoning Engine", AmberPro)
                         PlanFeature("✓ 4,500 Messages / month (150/day)", AmberPro)
+                        PlanFeature("✓ 100 File Uploads / day (High-Res, Large Docs)", AmberPro)
                         PlanFeature("✓ 4X Extended Context Recall", AmberPro)
 
                         Spacer(modifier = Modifier.height(10.dp))
