@@ -537,59 +537,6 @@ fun LoginDialog(
                         when (emailAuthMode) {
                             EmailAuthMode.SIGN_IN -> {
                                 Column {
-                                    // Sub-mode pill selector (Sign In vs Sign Up)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(DarkSurfaceVariant)
-                                            .padding(4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(GreenSurfaceElevated)
-                                                .border(1.dp, GreenBorderGlow, RoundedCornerShape(9.dp))
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "Sign In",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = GreenHighlight
-                                            )
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .bounceClick {
-                                                    emailAuthMode = EmailAuthMode.SIGN_UP
-                                                    signUpStep = SignUpStep.ENTER_DETAILS
-                                                    signUpEmail = signInEmail.trim()
-                                                    signUpPassword = ""
-                                                    signUpConfirmPassword = ""
-                                                    errorMessage = null
-                                                    statusSuccessMessage = null
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "Create Account",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = TextMuted
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
                                     Text(
                                         text = "Sign In to Your Account",
                                         style = MaterialTheme.typography.titleMedium,
@@ -677,7 +624,7 @@ fun LoginDialog(
 
                                             val savedPwd = userPrefs.getPasswordForEmail(signInEmail.trim())
                                             if (savedPwd == null) {
-                                                errorMessage = "No account password set for this email. Tap 'Create Account' above to sign up and set your password!"
+                                                errorMessage = "No account password set for this email. Tap 'Sign Up' below to create an account and set your password!"
                                                 return@Button
                                             }
 
@@ -716,10 +663,10 @@ fun LoginDialog(
                                     ) {
                                         Text(
                                             text = "Don't have an account?",
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
                                             color = TextMuted
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         TextButton(
                                             onClick = {
                                                 emailAuthMode = EmailAuthMode.SIGN_UP
@@ -732,8 +679,8 @@ fun LoginDialog(
                                             }
                                         ) {
                                             Text(
-                                                text = "Sign Up / Set Password",
-                                                fontSize = 12.sp,
+                                                text = "Sign Up",
+                                                fontSize = 13.sp,
                                                 color = GreenHighlight,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -744,57 +691,9 @@ fun LoginDialog(
 
                             EmailAuthMode.SIGN_UP -> {
                                 Column {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(DarkSurfaceVariant)
-                                            .padding(4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .bounceClick {
-                                                    emailAuthMode = EmailAuthMode.SIGN_IN
-                                                    errorMessage = null
-                                                    statusSuccessMessage = null
-                                                }
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "Sign In",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = TextMuted
-                                            )
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(GreenSurfaceElevated)
-                                                .border(1.dp, GreenBorderGlow, RoundedCornerShape(9.dp))
-                                                .padding(vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "Create Account",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = GreenHighlight
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
                                     if (signUpStep == SignUpStep.ENTER_DETAILS) {
                                         Text(
-                                            text = "Step 1: Set Your Password",
+                                            text = "Create Your Account",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary
@@ -923,10 +822,10 @@ fun LoginDialog(
                                         ) {
                                             Text(
                                                 text = "Already have an account?",
-                                                fontSize = 12.sp,
+                                                fontSize = 13.sp,
                                                 color = TextMuted
                                             )
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             TextButton(
                                                 onClick = {
                                                     emailAuthMode = EmailAuthMode.SIGN_IN
@@ -937,7 +836,7 @@ fun LoginDialog(
                                             ) {
                                                 Text(
                                                     text = "Sign In",
-                                                    fontSize = 12.sp,
+                                                    fontSize = 13.sp,
                                                     color = GreenHighlight,
                                                     fontWeight = FontWeight.Bold
                                                 )
