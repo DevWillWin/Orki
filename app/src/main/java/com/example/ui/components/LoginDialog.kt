@@ -1,16 +1,24 @@
 package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
@@ -35,6 +44,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -51,8 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,16 +78,27 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.network.EmailVerificationService
 import com.example.data.preferences.UserPreferences
-import java.util.Locale
+import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
-import com.example.ui.theme.EmeraldAccent
-import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.DarkSurfaceVariant
+import com.example.ui.theme.ErrorRed
+import com.example.ui.theme.ErrorRedDark
+import com.example.ui.theme.GreenBorder
+import com.example.ui.theme.GreenBorderGlow
+import com.example.ui.theme.GreenBright
+import com.example.ui.theme.GreenHighlight
+import com.example.ui.theme.GreenMuted
+import com.example.ui.theme.GreenSurfaceElevated
+import com.example.ui.theme.GreenSurfaceTint
+import com.example.ui.theme.GreenTextMuted
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private enum class MainAuthTab {
     EMAIL_PASSWORD,
@@ -118,7 +141,7 @@ fun LoginDialog(
     var signInPassword by remember { mutableStateOf("") }
     var signInPasswordVisible by remember { mutableStateOf(false) }
 
-    // Sign Up states (First time password creation + email OTP verification)
+    // Sign Up states
     var signUpStep by remember { mutableStateOf(SignUpStep.ENTER_DETAILS) }
     var signUpEmail by remember { mutableStateOf(suggestedEmail) }
     var signUpPassword by remember { mutableStateOf("") }
@@ -144,7 +167,7 @@ fun LoginDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var statusSuccessMessage by remember { mutableStateOf<String?>(null) }
 
-    // Cooldown countdown timers
+    // Cooldown timers
     LaunchedEffect(signUpCooldownSeconds) {
         if (signUpCooldownSeconds > 0) {
             delay(1000)
@@ -247,7 +270,7 @@ fun LoginDialog(
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = DarkSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, GreenBorder),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .padding(vertical = 16.dp)
@@ -256,150 +279,117 @@ fun LoginDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(22.dp)
+                    .padding(24.dp)
             ) {
-                // Top Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF064E3B), Color(0xFF042F24))
-                                    )
-                                )
-                                .border(1.dp, EmeraldAccent.copy(alpha = 0.5f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = null,
-                                tint = EmeraldAccent,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Authentication & Security",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "Sign in to Orki AI with password or Google",
-                                fontSize = 11.sp,
-                                color = TextMuted
-                            )
-                        }
-                    }
-
+                // Top Header Row with Close Icon and Hero Logo Area
+                Box(modifier = Modifier.fillMaxWidth()) {
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(32.dp)
+                            .bounceClick()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = TextSecondary,
+                            tint = TextMuted,
                             modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // App Logo / Hero Branding Section (Requirement 5)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp, bottom = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Glowing Emblem with signature multi-shade green
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            GreenBright.copy(alpha = 0.35f),
+                                            GreenSurfaceTint,
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                                .border(1.5.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Orki AI Logo",
+                                tint = GreenHighlight,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "ORKI AI",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TextPrimary,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(GreenSurfaceElevated)
+                                    .border(1.dp, GreenBorder, RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "BODO AI",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GreenHighlight
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Authentication & Account Security",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GreenTextMuted,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Primary Tabs: Email & Password / Google
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF141715))
-                        .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
-                        .padding(3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Email & Password Tab
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (selectedTab == MainAuthTab.EMAIL_PASSWORD) EmeraldPrimary.copy(alpha = 0.2f) else Color.Transparent)
-                            .clickable {
-                                selectedTab = MainAuthTab.EMAIL_PASSWORD
-                                errorMessage = null
-                                statusSuccessMessage = null
-                            }
-                            .padding(vertical = 9.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) EmeraldAccent else TextMuted,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Email & Password",
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) EmeraldAccent else TextMuted
-                            )
-                        }
+                // Animated Segmented Toggle for Email/Google (Requirement 5)
+                AnimatedAuthSegmentedToggle(
+                    selectedTab = selectedTab,
+                    onTabSelected = { tab ->
+                        selectedTab = tab
+                        errorMessage = null
+                        statusSuccessMessage = null
                     }
+                )
 
-                    // Google Tab
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (selectedTab == MainAuthTab.GOOGLE) EmeraldPrimary.copy(alpha = 0.2f) else Color.Transparent)
-                            .clickable {
-                                selectedTab = MainAuthTab.GOOGLE
-                                errorMessage = null
-                                statusSuccessMessage = null
-                            }
-                            .padding(vertical = 9.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "G",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (selectedTab == MainAuthTab.GOOGLE) Color(0xFF4285F4) else TextMuted
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Google",
-                                fontSize = 12.sp,
-                                fontWeight = if (selectedTab == MainAuthTab.GOOGLE) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selectedTab == MainAuthTab.GOOGLE) EmeraldAccent else TextMuted
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Error Banner
                 AnimatedVisibility(visible = errorMessage != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF3B1212))
-                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(bottom = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ErrorRedDark)
+                            .border(1.dp, ErrorRed.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Text(
                             text = errorMessage ?: "",
@@ -415,16 +405,16 @@ fun LoginDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF0D3325))
-                            .border(1.dp, EmeraldAccent.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(bottom = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(GreenSurfaceTint)
+                            .border(1.dp, GreenHighlight.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Text(
                             text = statusSuccessMessage ?: "",
                             fontSize = 12.sp,
-                            color = EmeraldAccent,
+                            color = GreenHighlight,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -436,14 +426,14 @@ fun LoginDialog(
                         Column {
                             Text(
                                 text = "Verified Device Account",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Sign in directly with your authenticated Google identity. Email verification is automatically verified.",
-                                fontSize = 11.sp,
+                                text = "Sign in directly with your authenticated Google identity. Email verification is handled automatically.",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = TextMuted,
                                 lineHeight = 16.sp
                             )
@@ -452,14 +442,14 @@ fun LoginDialog(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFF161A18))
-                                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                                    .clickable {
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(DarkSurfaceVariant)
+                                    .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
+                                    .bounceClick(scaleDown = 0.98f) {
                                         onSignIn(suggestedEmail, suggestedName, "Google")
                                         onDismiss()
                                     }
-                                    .padding(horizontal = 14.dp, vertical = 14.dp)
+                                    .padding(horizontal = 16.dp, vertical = 16.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -494,14 +484,14 @@ fun LoginDialog(
                                                 Icon(
                                                     imageVector = Icons.Default.CheckCircle,
                                                     contentDescription = "Verified",
-                                                    tint = EmeraldAccent,
-                                                    modifier = Modifier.size(13.dp)
+                                                    tint = GreenHighlight,
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                             }
                                             Text(
                                                 text = suggestedEmail,
                                                 fontSize = 11.sp,
-                                                color = EmeraldAccent
+                                                color = GreenHighlight
                                             )
                                         }
                                     }
@@ -513,24 +503,25 @@ fun LoginDialog(
                                         color = Color(0xFF042F24),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(EmeraldAccent)
-                                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                                            .background(GreenHighlight)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
 
                             Button(
                                 onClick = {
                                     onSignIn(suggestedEmail, suggestedName, "Google")
                                     onDismiss()
                                 },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(46.dp)
+                                    .height(48.dp)
+                                    .bounceClick(scaleDown = 0.98f)
                             ) {
                                 Text(
                                     text = "Sign In with Google",
@@ -543,7 +534,6 @@ fun LoginDialog(
                     }
 
                     MainAuthTab.EMAIL_PASSWORD -> {
-                        // Email & Password with Sign In vs Sign Up vs Forgot Password
                         when (emailAuthMode) {
                             EmailAuthMode.SIGN_IN -> {
                                 Column {
@@ -551,32 +541,33 @@ fun LoginDialog(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF1B201D))
-                                            .padding(3.dp),
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(DarkSurfaceVariant)
+                                            .padding(4.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(EmeraldPrimary.copy(alpha = 0.25f))
-                                                .padding(vertical = 7.dp),
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(GreenSurfaceElevated)
+                                                .border(1.dp, GreenBorderGlow, RoundedCornerShape(9.dp))
+                                                .padding(vertical = 8.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "Sign In",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = EmeraldAccent
+                                                color = GreenHighlight
                                             )
                                         }
 
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable {
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .bounceClick {
                                                     emailAuthMode = EmailAuthMode.SIGN_UP
                                                     signUpStep = SignUpStep.ENTER_DETAILS
                                                     signUpEmail = signInEmail.trim()
@@ -585,7 +576,7 @@ fun LoginDialog(
                                                     errorMessage = null
                                                     statusSuccessMessage = null
                                                 }
-                                                .padding(vertical = 7.dp),
+                                                .padding(vertical = 8.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -597,91 +588,49 @@ fun LoginDialog(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
                                     Text(
                                         text = "Sign In to Your Account",
-                                        fontSize = 13.sp,
+                                        style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = TextPrimary
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = "Enter your registered email and account password.",
-                                        fontSize = 11.sp,
-                                        color = TextMuted,
-                                        lineHeight = 16.sp
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextMuted
                                     )
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                                    OutlinedTextField(
+                                    // Better-styled text fields with green focus glow (Requirement 5)
+                                    GlowAuthTextField(
                                         value = signInEmail,
                                         onValueChange = {
                                             signInEmail = it
                                             errorMessage = null
                                         },
-                                        label = { Text("Email address", fontSize = 12.sp) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Email,
-                                                contentDescription = null,
-                                                tint = TextMuted,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                                        singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = EmeraldPrimary,
-                                            unfocusedBorderColor = DarkSurfaceBorder,
-                                            focusedTextColor = TextPrimary,
-                                            unfocusedTextColor = TextPrimary,
-                                            cursorColor = EmeraldPrimary
-                                        ),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        label = "Email address",
+                                        leadingIcon = Icons.Default.Email,
+                                        keyboardType = KeyboardType.Email
                                     )
 
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                                    OutlinedTextField(
+                                    GlowAuthTextField(
                                         value = signInPassword,
                                         onValueChange = {
                                             signInPassword = it
                                             errorMessage = null
                                         },
-                                        label = { Text("Account password", fontSize = 12.sp) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Lock,
-                                                contentDescription = null,
-                                                tint = TextMuted,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            IconButton(onClick = { signInPasswordVisible = !signInPasswordVisible }) {
-                                                Icon(
-                                                    imageVector = if (signInPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                    contentDescription = if (signInPasswordVisible) "Hide password" else "Show password",
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (signInPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                        singleLine = true,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = EmeraldPrimary,
-                                            unfocusedBorderColor = DarkSurfaceBorder,
-                                            focusedTextColor = TextPrimary,
-                                            unfocusedTextColor = TextPrimary,
-                                            cursorColor = EmeraldPrimary
-                                        ),
-                                        shape = RoundedCornerShape(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        label = "Account password",
+                                        leadingIcon = Icons.Default.Lock,
+                                        keyboardType = KeyboardType.Password,
+                                        isPassword = true,
+                                        passwordVisible = signInPasswordVisible,
+                                        onTogglePasswordVisibility = { signInPasswordVisible = !signInPasswordVisible }
                                     )
 
                                     // Forgot Password Link
@@ -706,13 +655,13 @@ fun LoginDialog(
                                             Text(
                                                 text = "Forgot Password?",
                                                 fontSize = 12.sp,
-                                                color = EmeraldAccent,
+                                                color = GreenHighlight,
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
                                     Button(
                                         onClick = {
@@ -743,11 +692,12 @@ fun LoginDialog(
                                             onSignIn(signInEmail.trim(), finalName, "Email & Password")
                                             onDismiss()
                                         },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(46.dp)
+                                            .height(48.dp)
+                                            .bounceClick(scaleDown = 0.98f)
                                     ) {
                                         Text(
                                             text = "Authenticate & Sign In",
@@ -757,7 +707,7 @@ fun LoginDialog(
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -769,7 +719,7 @@ fun LoginDialog(
                                             fontSize = 12.sp,
                                             color = TextMuted
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         TextButton(
                                             onClick = {
                                                 emailAuthMode = EmailAuthMode.SIGN_UP
@@ -784,7 +734,7 @@ fun LoginDialog(
                                             Text(
                                                 text = "Sign Up / Set Password",
                                                 fontSize = 12.sp,
-                                                color = EmeraldAccent,
+                                                color = GreenHighlight,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -793,27 +743,25 @@ fun LoginDialog(
                             }
 
                             EmailAuthMode.SIGN_UP -> {
-                                // First-time registration with Password setup and Email OTP verification
                                 Column {
-                                    // Sub-mode pill selector (Sign In vs Sign Up)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF1B201D))
-                                            .padding(3.dp),
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(DarkSurfaceVariant)
+                                            .padding(4.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .clickable {
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .bounceClick {
                                                     emailAuthMode = EmailAuthMode.SIGN_IN
                                                     errorMessage = null
                                                     statusSuccessMessage = null
                                                 }
-                                                .padding(vertical = 7.dp),
+                                                .padding(vertical = 8.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -827,187 +775,121 @@ fun LoginDialog(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(EmeraldPrimary.copy(alpha = 0.25f))
-                                                .padding(vertical = 7.dp),
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(GreenSurfaceElevated)
+                                                .border(1.dp, GreenBorderGlow, RoundedCornerShape(9.dp))
+                                                .padding(vertical = 8.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "Create Account",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = EmeraldAccent
+                                                color = GreenHighlight
                                             )
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
                                     if (signUpStep == SignUpStep.ENTER_DETAILS) {
                                         Text(
                                             text = "Step 1: Set Your Password",
-                                            fontSize = 13.sp,
+                                            style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = "Choose your account password and we'll send a 6-digit code to verify your email.",
-                                            fontSize = 11.sp,
-                                            color = TextMuted,
-                                            lineHeight = 16.sp
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextMuted
                                         )
 
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = signUpEmail,
                                             onValueChange = {
                                                 signUpEmail = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("Email address", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Email,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "Email address",
+                                            leadingIcon = Icons.Default.Email,
+                                            keyboardType = KeyboardType.Email
                                         )
 
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = signUpPassword,
                                             onValueChange = {
                                                 signUpPassword = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("Create password (min 6 characters)", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            trailingIcon = {
-                                                IconButton(onClick = { signUpPasswordVisible = !signUpPasswordVisible }) {
-                                                    Icon(
-                                                        imageVector = if (signUpPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                        contentDescription = null,
-                                                        tint = TextMuted,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            },
-                                            visualTransformation = if (signUpPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "Create password (min 6 chars)",
+                                            leadingIcon = Icons.Default.Lock,
+                                            keyboardType = KeyboardType.Password,
+                                            isPassword = true,
+                                            passwordVisible = signUpPasswordVisible,
+                                            onTogglePasswordVisibility = { signUpPasswordVisible = !signUpPasswordVisible }
                                         )
 
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = signUpConfirmPassword,
                                             onValueChange = {
                                                 signUpConfirmPassword = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("Confirm password", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            trailingIcon = {
-                                                IconButton(onClick = { signUpConfirmPasswordVisible = !signUpConfirmPasswordVisible }) {
-                                                    Icon(
-                                                        imageVector = if (signUpConfirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                        contentDescription = null,
-                                                        tint = TextMuted,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            },
-                                            visualTransformation = if (signUpConfirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "Confirm password",
+                                            leadingIcon = Icons.Default.Lock,
+                                            keyboardType = KeyboardType.Password,
+                                            isPassword = true,
+                                            passwordVisible = signUpConfirmPasswordVisible,
+                                            onTogglePasswordVisibility = { signUpConfirmPasswordVisible = !signUpConfirmPasswordVisible }
                                         )
 
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         // Security badge
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(Color(0xFF161A18))
-                                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
-                                                .padding(10.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(GreenSurfaceTint)
+                                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                                                .padding(12.dp)
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
                                                     imageVector = Icons.Default.Shield,
                                                     contentDescription = null,
-                                                    tint = EmeraldAccent,
-                                                    modifier = Modifier.size(16.dp)
+                                                    tint = GreenHighlight,
+                                                    modifier = Modifier.size(18.dp)
                                                 )
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Spacer(modifier = Modifier.width(10.dp))
                                                 Text(
                                                     text = "We will send a 6-digit OTP code to verify ownership and activate your password.",
                                                     fontSize = 11.sp,
-                                                    color = TextMuted,
+                                                    color = GreenTextMuted,
                                                     lineHeight = 15.sp
                                                 )
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(24.dp))
 
                                         Button(
                                             onClick = { triggerSendSignUpOtp() },
                                             enabled = !isSignUpSendingCode,
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(46.dp)
+                                                .height(48.dp)
+                                                .bounceClick(scaleDown = 0.98f)
                                         ) {
                                             if (isSignUpSendingCode) {
                                                 CircularProgressIndicator(
@@ -1020,7 +902,7 @@ fun LoginDialog(
                                                     imageVector = Icons.Default.Security,
                                                     contentDescription = null,
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(17.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
@@ -1032,7 +914,7 @@ fun LoginDialog(
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1044,7 +926,7 @@ fun LoginDialog(
                                                 fontSize = 12.sp,
                                                 color = TextMuted
                                             )
-                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
                                             TextButton(
                                                 onClick = {
                                                     emailAuthMode = EmailAuthMode.SIGN_IN
@@ -1056,13 +938,13 @@ fun LoginDialog(
                                                 Text(
                                                     text = "Sign In",
                                                     fontSize = 12.sp,
-                                                    color = EmeraldAccent,
+                                                    color = GreenHighlight,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
                                     } else {
-                                        // Step 2: Verify 6-digit OTP to complete registration & activate password
+                                        // Step 2: Verify 6-digit OTP
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.fillMaxWidth()
@@ -1072,19 +954,19 @@ fun LoginDialog(
                                                     signUpStep = SignUpStep.ENTER_DETAILS
                                                     errorMessage = null
                                                 },
-                                                modifier = Modifier.size(28.dp)
+                                                modifier = Modifier.size(28.dp).bounceClick()
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                                     contentDescription = "Back",
-                                                    tint = EmeraldAccent,
+                                                    tint = GreenHighlight,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
                                                 text = "Step 2: Verify Email & Activate",
-                                                fontSize = 14.sp,
+                                                style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = TextPrimary
                                             )
@@ -1094,12 +976,12 @@ fun LoginDialog(
 
                                         Text(
                                             text = "Enter the 6-digit verification code sent to ${signUpEmail.trim()} to activate your account password.",
-                                            fontSize = 11.sp,
+                                            style = MaterialTheme.typography.bodySmall,
                                             color = TextMuted,
                                             lineHeight = 16.sp
                                         )
 
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Text(
                                             text = "6-Digit Email Code",
@@ -1107,7 +989,7 @@ fun LoginDialog(
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary
                                         )
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
 
                                         OutlinedTextField(
                                             value = signUpOtpInput,
@@ -1121,24 +1003,25 @@ fun LoginDialog(
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             singleLine = true,
                                             textStyle = androidx.compose.ui.text.TextStyle(
-                                                fontSize = 18.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                letterSpacing = 5.sp,
+                                                letterSpacing = 6.sp,
                                                 textAlign = TextAlign.Center,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
+                                                color = GreenHighlight
                                             ),
                                             colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
+                                                focusedBorderColor = GreenBright,
+                                                unfocusedBorderColor = GreenBorder,
+                                                focusedContainerColor = DarkSurfaceVariant,
+                                                unfocusedContainerColor = DarkSurfaceVariant,
+                                                cursorColor = GreenBright
                                             ),
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(14.dp),
                                             modifier = Modifier.fillMaxWidth()
                                         )
 
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(24.dp))
 
                                         Button(
                                             onClick = {
@@ -1153,7 +1036,6 @@ fun LoginDialog(
                                                     return@Button
                                                 }
 
-                                                // Success: Save Password & Register User
                                                 userPrefs.setPasswordForEmail(signUpEmail.trim(), signUpPassword)
                                                 userPrefs.userEmail = signUpEmail.trim()
                                                 userPrefs.isEmailVerified = true
@@ -1162,11 +1044,12 @@ fun LoginDialog(
                                                 onSignIn(signUpEmail.trim(), finalName, "Email & Password")
                                                 onDismiss()
                                             },
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(46.dp)
+                                                .height(48.dp)
+                                                .bounceClick(scaleDown = 0.98f)
                                         ) {
                                             Text(
                                                 text = "Verify Code & Activate Password",
@@ -1176,7 +1059,7 @@ fun LoginDialog(
                                             )
                                         }
 
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1203,11 +1086,11 @@ fun LoginDialog(
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
                                                         contentDescription = null,
-                                                        tint = EmeraldAccent,
-                                                        modifier = Modifier.size(13.dp)
+                                                        tint = GreenHighlight,
+                                                        modifier = Modifier.size(14.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Resend Code", fontSize = 11.sp, color = EmeraldAccent)
+                                                    Text("Resend Code", fontSize = 11.sp, color = GreenHighlight)
                                                 }
                                             }
                                         }
@@ -1216,7 +1099,6 @@ fun LoginDialog(
                             }
 
                             EmailAuthMode.FORGOT_PASSWORD -> {
-                                // Forgot Password Flow with Email OTP
                                 Column {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1228,19 +1110,19 @@ fun LoginDialog(
                                                 errorMessage = null
                                                 statusSuccessMessage = null
                                             },
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(28.dp).bounceClick()
                                         ) {
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                                 contentDescription = "Back",
-                                                tint = EmeraldAccent,
+                                                tint = GreenHighlight,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = "Reset Password via Email",
-                                            fontSize = 14.sp,
+                                            style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = TextPrimary
                                         )
@@ -1251,51 +1133,35 @@ fun LoginDialog(
                                     if (forgotStep == ForgotStep.REQUEST_CODE) {
                                         Text(
                                             text = "Enter your email address. We'll send a 6-digit verification code so you can reset your password.",
-                                            fontSize = 11.sp,
+                                            style = MaterialTheme.typography.bodySmall,
                                             color = TextMuted,
                                             lineHeight = 16.sp
                                         )
 
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = forgotEmail,
                                             onValueChange = {
                                                 forgotEmail = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("Account email", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Email,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "Account email",
+                                            leadingIcon = Icons.Default.Email,
+                                            keyboardType = KeyboardType.Email
                                         )
 
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(24.dp))
 
                                         Button(
                                             onClick = { triggerSendForgotOtp() },
                                             enabled = !isForgotSendingCode,
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(46.dp)
+                                                .height(48.dp)
+                                                .bounceClick(scaleDown = 0.98f)
                                         ) {
                                             if (isForgotSendingCode) {
                                                 CircularProgressIndicator(
@@ -1308,7 +1174,7 @@ fun LoginDialog(
                                                     imageVector = Icons.Default.Security,
                                                     contentDescription = null,
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(17.dp)
+                                                    modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
@@ -1320,7 +1186,7 @@ fun LoginDialog(
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1343,12 +1209,12 @@ fun LoginDialog(
                                         // Step 2: Enter OTP & Set New Password
                                         Text(
                                             text = "Enter the 6-digit code sent to ${forgotEmail.trim()} and choose your new password.",
-                                            fontSize = 11.sp,
+                                            style = MaterialTheme.typography.bodySmall,
                                             color = TextMuted,
                                             lineHeight = 16.sp
                                         )
 
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Text(
                                             text = "6-Digit Reset Code",
@@ -1356,7 +1222,7 @@ fun LoginDialog(
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary
                                         )
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
 
                                         OutlinedTextField(
                                             value = forgotOtpInput,
@@ -1370,106 +1236,57 @@ fun LoginDialog(
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             singleLine = true,
                                             textStyle = androidx.compose.ui.text.TextStyle(
-                                                fontSize = 18.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                letterSpacing = 5.sp,
+                                                letterSpacing = 6.sp,
                                                 textAlign = TextAlign.Center,
-                                                fontFamily = FontFamily.Monospace
+                                                fontFamily = FontFamily.Monospace,
+                                                color = GreenHighlight
                                             ),
                                             colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
+                                                focusedBorderColor = GreenBright,
+                                                unfocusedBorderColor = GreenBorder,
+                                                focusedContainerColor = DarkSurfaceVariant,
+                                                unfocusedContainerColor = DarkSurfaceVariant,
+                                                cursorColor = GreenBright
                                             ),
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(14.dp),
                                             modifier = Modifier.fillMaxWidth()
                                         )
 
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = newPassword,
                                             onValueChange = {
                                                 newPassword = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("New password (min 6 chars)", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            trailingIcon = {
-                                                IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
-                                                    Icon(
-                                                        imageVector = if (newPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                        contentDescription = null,
-                                                        tint = TextMuted,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            },
-                                            visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "New password (min 6 chars)",
+                                            leadingIcon = Icons.Default.Lock,
+                                            keyboardType = KeyboardType.Password,
+                                            isPassword = true,
+                                            passwordVisible = newPasswordVisible,
+                                            onTogglePasswordVisibility = { newPasswordVisible = !newPasswordVisible }
                                         )
 
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
-                                        OutlinedTextField(
+                                        GlowAuthTextField(
                                             value = confirmNewPassword,
                                             onValueChange = {
                                                 confirmNewPassword = it
                                                 errorMessage = null
                                             },
-                                            label = { Text("Confirm new password", fontSize = 12.sp) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = null,
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            },
-                                            trailingIcon = {
-                                                IconButton(onClick = { confirmNewPasswordVisible = !confirmNewPasswordVisible }) {
-                                                    Icon(
-                                                        imageVector = if (confirmNewPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                                        contentDescription = null,
-                                                        tint = TextMuted,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            },
-                                            visualTransformation = if (confirmNewPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = EmeraldPrimary,
-                                                unfocusedBorderColor = DarkSurfaceBorder,
-                                                focusedTextColor = TextPrimary,
-                                                unfocusedTextColor = TextPrimary,
-                                                cursorColor = EmeraldPrimary
-                                            ),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                            label = "Confirm new password",
+                                            leadingIcon = Icons.Default.Lock,
+                                            keyboardType = KeyboardType.Password,
+                                            isPassword = true,
+                                            passwordVisible = confirmNewPasswordVisible,
+                                            onTogglePasswordVisibility = { confirmNewPasswordVisible = !confirmNewPasswordVisible }
                                         )
 
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(24.dp))
 
                                         Button(
                                             onClick = {
@@ -1491,7 +1308,6 @@ fun LoginDialog(
                                                     return@Button
                                                 }
 
-                                                // Save new password
                                                 userPrefs.setPasswordForEmail(forgotEmail.trim(), newPassword)
                                                 userPrefs.userEmail = forgotEmail.trim()
                                                 userPrefs.isEmailVerified = true
@@ -1500,11 +1316,12 @@ fun LoginDialog(
                                                 onSignIn(forgotEmail.trim(), finalName, "Password Reset")
                                                 onDismiss()
                                             },
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(46.dp)
+                                                .height(48.dp)
+                                                .bounceClick(scaleDown = 0.98f)
                                         ) {
                                             Text(
                                                 text = "Save New Password & Sign In",
@@ -1514,7 +1331,7 @@ fun LoginDialog(
                                             )
                                         }
 
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(16.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1541,11 +1358,11 @@ fun LoginDialog(
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
                                                         contentDescription = null,
-                                                        tint = EmeraldAccent,
-                                                        modifier = Modifier.size(13.dp)
+                                                        tint = GreenHighlight,
+                                                        modifier = Modifier.size(14.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Resend Code", fontSize = 11.sp, color = EmeraldAccent)
+                                                    Text("Resend Code", fontSize = 11.sp, color = GreenHighlight)
                                                 }
                                             }
                                         }
@@ -1558,4 +1375,177 @@ fun LoginDialog(
             }
         }
     }
+}
+
+/**
+ * Animated Segmented Toggle (Requirement 5)
+ * Smooth animated slider between Email & Password and Google tabs.
+ */
+@Composable
+private fun AnimatedAuthSegmentedToggle(
+    selectedTab: MainAuthTab,
+    onTabSelected: (MainAuthTab) -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(DarkSurfaceVariant)
+            .border(1.dp, GreenBorder, RoundedCornerShape(14.dp))
+            .padding(4.dp)
+    ) {
+        val tabWidth = maxWidth / 2
+
+        // Animated pill indicator
+        val targetOffset = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) 0.dp else tabWidth
+        val animatedOffset by animateDpAsState(
+            targetValue = targetOffset,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "tabIndicatorOffset"
+        )
+
+        // Sliding indicator background pill with subtle green glow
+        Box(
+            modifier = Modifier
+                .offset(x = animatedOffset)
+                .width(tabWidth)
+                .height(42.dp)
+                .clip(RoundedCornerShape(11.dp))
+                .background(GreenSurfaceElevated)
+                .border(1.dp, GreenBorderGlow, RoundedCornerShape(11.dp))
+        )
+
+        // Tab items row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Email & Password Tab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onTabSelected(MainAuthTab.EMAIL_PASSWORD) },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) GreenHighlight else TextMuted,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Email & Password",
+                        fontSize = 12.sp,
+                        fontWeight = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) GreenHighlight else TextMuted
+                    )
+                }
+            }
+
+            // Google Tab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onTabSelected(MainAuthTab.GOOGLE) },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "G",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedTab == MainAuthTab.GOOGLE) Color(0xFF4285F4) else TextMuted
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Google",
+                        fontSize = 12.sp,
+                        fontWeight = if (selectedTab == MainAuthTab.GOOGLE) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedTab == MainAuthTab.GOOGLE) GreenHighlight else TextMuted
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Better-styled text field with green focus glow (Requirement 5)
+ */
+@Composable
+private fun GlowAuthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    leadingIcon: ImageVector,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisibility: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, fontSize = 12.sp) },
+        leadingIcon = {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = if (isFocused) GreenHighlight else GreenMuted,
+                modifier = Modifier.size(18.dp)
+            )
+        },
+        trailingIcon = if (isPassword && onTogglePasswordVisibility != null) {
+            {
+                IconButton(onClick = onTogglePasswordVisibility) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                        tint = if (isFocused) GreenHighlight else TextMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        } else null,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        singleLine = true,
+        interactionSource = interactionSource,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = GreenBright,
+            unfocusedBorderColor = GreenBorder,
+            focusedTextColor = TextPrimary,
+            unfocusedTextColor = TextPrimary,
+            cursorColor = GreenBright,
+            focusedContainerColor = DarkSurfaceVariant,
+            unfocusedContainerColor = DarkSurfaceVariant,
+            focusedLabelColor = GreenHighlight,
+            unfocusedLabelColor = TextMuted
+        ),
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind {
+                if (isFocused) {
+                    // Subtle emerald focus glow halo around field
+                    drawRoundRect(
+                        color = GreenBorderGlow,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx())
+                    )
+                }
+            }
+    )
 }

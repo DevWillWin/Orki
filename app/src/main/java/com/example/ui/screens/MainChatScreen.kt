@@ -44,9 +44,11 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Stop
@@ -57,6 +59,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -78,9 +81,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,13 +103,24 @@ import com.example.ui.components.LiveTalkOverlay
 import com.example.ui.components.LoginDialog
 import com.example.ui.components.SettingsDialog
 import com.example.ui.components.UpgradeDialog
+import com.example.ui.components.bounceClick
 import com.example.ui.theme.AmberPro
+import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.GreenBorder
+import com.example.ui.theme.GreenBorderGlow
+import com.example.ui.theme.GreenBright
+import com.example.ui.theme.GreenHighlight
+import com.example.ui.theme.GreenMuted
+import com.example.ui.theme.GreenSurfaceElevated
+import com.example.ui.theme.GreenSurfaceTint
+import com.example.ui.theme.GreenTextMuted
 import com.example.ui.theme.PurpleIncognito
 import com.example.ui.theme.PurpleIncognitoLight
 import com.example.ui.theme.TextMuted
@@ -283,7 +299,7 @@ fun MainChatScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -292,9 +308,11 @@ fun MainChatScreen(
                         onClick = { scope.launch { drawerState.open() } },
                         modifier = Modifier
                             .testTag("menu_button")
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(DarkSurfaceVariant)
+                            .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                            .bounceClick()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Menu,
@@ -309,30 +327,30 @@ fun MainChatScreen(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFF161B18))
-                                .border(1.dp, EmeraldPrimary.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
-                                .clickable { showModelDropdown = true }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .background(DarkSurface)
+                                .border(1.dp, GreenBorder, RoundedCornerShape(20.dp))
+                                .bounceClick { showModelDropdown = true }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
+                                    .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(if (uiState.selectedModel == "okafwr-2.1") AmberPro else EmeraldAccent)
+                                    .background(if (uiState.selectedModel == "okafwr-2.1") AmberPro else GreenHighlight)
                             )
-                            Spacer(modifier = Modifier.width(7.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (uiState.selectedModel == "okafwr-2.1") "Okafwr 2.1 Pro" else "Orki 3.0",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Switch Model",
-                                tint = TextMuted,
+                                tint = GreenMuted,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -341,13 +359,13 @@ fun MainChatScreen(
                             expanded = showModelDropdown,
                             onDismissRequest = { showModelDropdown = false },
                             modifier = Modifier
-                                .background(DarkSurface)
-                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
+                                .background(DarkSurfaceElevated)
+                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
                         ) {
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text("Orki 3.0", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = EmeraldAccent)
+                                        Text("Orki 3.0", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GreenHighlight)
                                         Text("Ultra-fast conversational Bodo model", fontSize = 11.sp, color = TextMuted)
                                     }
                                 },
@@ -378,7 +396,7 @@ fun MainChatScreen(
                     // Right Actions: New Chat Icon Button + Incognito/Plan Indicator
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         if (uiState.isIncognito) {
                             Box(
@@ -386,16 +404,16 @@ fun MainChatScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(PurpleIncognito.copy(alpha = 0.2f))
                                     .border(1.dp, PurpleIncognito, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 7.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.VisibilityOff,
                                         contentDescription = null,
                                         tint = PurpleIncognitoLight,
-                                        modifier = Modifier.size(11.dp)
+                                        modifier = Modifier.size(12.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "Incognito",
                                         color = PurpleIncognitoLight,
@@ -411,14 +429,16 @@ fun MainChatScreen(
                             onClick = { viewModel.startNewChat() },
                             modifier = Modifier
                                 .testTag("new_chat_button")
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(DarkSurfaceVariant)
+                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                                .bounceClick()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "New Chat",
-                                tint = EmeraldAccent,
+                                tint = GreenHighlight,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -432,7 +452,7 @@ fun MainChatScreen(
                         .fillMaxWidth()
                         .navigationBarsPadding()
                         .imePadding()
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     // Attached File Preview Pill
                     AnimatedVisibility(visible = uiState.attachedFile != null) {
@@ -440,11 +460,11 @@ fun MainChatScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 6.dp)
+                                    .padding(bottom = 8.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFF141A17))
-                                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    .background(GreenSurfaceTint)
+                                    .border(1.dp, GreenBorder, RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -454,11 +474,11 @@ fun MainChatScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
+                                            .size(34.dp)
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(
                                                 when (file.fileType) {
-                                                    "image" -> Color(0x3310B981)
+                                                    "image" -> GreenBright.copy(alpha = 0.2f)
                                                     "pdf" -> Color(0x33EF4444)
                                                     else -> Color(0x3338BDF8)
                                                 }
@@ -473,18 +493,18 @@ fun MainChatScreen(
                                             },
                                             contentDescription = null,
                                             tint = when (file.fileType) {
-                                                "image" -> EmeraldAccent
+                                                "image" -> GreenHighlight
                                                 "pdf" -> Color(0xFFF87171)
                                                 else -> Color(0xFF38BDF8)
                                             },
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Column {
                                         Text(
                                             text = file.name,
-                                            fontSize = 12.sp,
+                                            style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary,
                                             maxLines = 1,
@@ -492,14 +512,14 @@ fun MainChatScreen(
                                         )
                                         Text(
                                             text = "${file.formattedSize} • Ready to send",
-                                            fontSize = 10.sp,
-                                            color = EmeraldAccent
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = GreenHighlight
                                         )
                                     }
                                 }
                                 IconButton(
                                     onClick = { viewModel.removeAttachedFile() },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp).bounceClick()
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
@@ -516,9 +536,9 @@ fun MainChatScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(26.dp))
-                            .background(Color(0xFF171917))
-                            .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .background(DarkSurfaceVariant)
+                            .border(1.dp, GreenBorder, RoundedCornerShape(26.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -535,21 +555,22 @@ fun MainChatScreen(
                                 },
                                 modifier = Modifier
                                     .testTag("attach_button")
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
-                                    .background(if (uiState.attachedFile != null) Color(0x2810B981) else Color(0x1F27272A))
+                                    .background(if (uiState.attachedFile != null) GreenBright.copy(alpha = 0.2f) else DarkSurface)
+                                    .bounceClick()
                             ) {
                                 if (uiState.isProcessingFile) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp,
-                                        color = EmeraldAccent
+                                        color = GreenHighlight
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = "Attach File",
-                                        tint = if (uiState.attachedFile != null) EmeraldAccent else TextSecondary,
+                                        tint = if (uiState.attachedFile != null) GreenHighlight else TextSecondary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -583,15 +604,16 @@ fun MainChatScreen(
                             // Action buttons cluster inside capsule
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 // Live Mode Wave Pill Button
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(16.dp))
-                                        .background(Color(0x2810B981))
-                                        .clickable { requestMicAndExecute(liveMode = true) }
-                                        .padding(horizontal = 9.dp, vertical = 6.dp)
+                                        .background(GreenSurfaceElevated)
+                                        .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
+                                        .bounceClick { requestMicAndExecute(liveMode = true) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
                                         .testTag("live_talk_button"),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -599,13 +621,13 @@ fun MainChatScreen(
                                         Icon(
                                             imageVector = Icons.Default.GraphicEq,
                                             contentDescription = "Live Talk",
-                                            tint = EmeraldAccent,
+                                            tint = GreenHighlight,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = "Live",
-                                            color = EmeraldAccent,
+                                            color = GreenHighlight,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -617,9 +639,10 @@ fun MainChatScreen(
                                     onClick = { requestMicAndExecute(liveMode = false) },
                                     modifier = Modifier
                                         .testTag("mic_button")
-                                        .size(36.dp)
+                                        .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(if (uiState.isRecording) Color(0xFFDC2626) else Color(0x1F27272A))
+                                        .background(if (uiState.isRecording) Color(0xFFDC2626) else DarkSurface)
+                                        .bounceClick()
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Mic,
@@ -643,13 +666,14 @@ fun MainChatScreen(
                                     },
                                     modifier = Modifier
                                         .testTag("send_button")
-                                        .size(36.dp)
+                                        .size(38.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (uiState.isGenerating) Color(0xFFDC2626)
-                                            else if (canSend) EmeraldPrimary
+                                             else if (canSend) GreenBright
                                             else Color(0x2627272A)
                                         )
+                                        .bounceClick()
                                 ) {
                                     Icon(
                                         imageVector = if (uiState.isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
@@ -665,11 +689,11 @@ fun MainChatScreen(
                     // Disclaimer text
                     Text(
                         text = strings.disclaimer,
-                        fontSize = 10.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally)
-                            .padding(top = 4.dp)
+                            .padding(top = 8.dp)
                     )
                 }
             },
@@ -697,45 +721,59 @@ fun MainChatScreen(
                                 .background(
                                     Brush.radialGradient(
                                         colors = listOf(
-                                            EmeraldPrimary.copy(alpha = 0.35f),
-                                            Color(0xFF0D1E16),
+                                            GreenBright.copy(alpha = 0.35f),
+                                            GreenSurfaceTint,
                                             Color.Transparent
                                         )
                                     )
                                 )
-                                .border(1.5.dp, EmeraldAccent.copy(alpha = 0.6f), CircleShape),
+                                .border(1.5.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = "Orki AI",
-                                tint = EmeraldAccent,
-                                modifier = Modifier.size(32.dp)
+                                tint = GreenHighlight,
+                                modifier = Modifier.size(34.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
+                        // Bold larger headline for greeting (Requirement 3)
                         Text(
                             text = strings.welcomeTitle,
-                            fontSize = 22.sp,
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = TextPrimary,
+                            textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
+                        // Medium subtitle (Requirement 3)
                         Text(
                             text = strings.welcomeSub,
-                            fontSize = 13.sp,
-                            color = TextSecondary
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = GreenTextMuted,
+                            textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // Suggested Prompt Cards Grid (Claude / ChatGPT style)
+                        // Smaller muted caption text (Requirement 3)
+                        Text(
+                            text = "Explore Bodo literature, ask questions, or practice conversational speech",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        // Suggested Prompt Cards Grid (Requirement 4 & 6)
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val prompt1 = if (uiState.script == "roman") "Khulumbai! Mabwrwi dong?" else "खुलुमबाय! माबोरै दं?"
@@ -747,9 +785,23 @@ fun MainChatScreen(
                             val prompt3 = if (uiState.script == "roman") "Mwnse thunlai khonthai lirna hwdw." else "मोनसे थुनलाइ खन्थाय लिरना हरदो।"
                             val sub3 = "Generate traditional Bodo poetry"
 
-                            ClaudePromptCard(title = prompt1, subtitle = sub1) { viewModel.sendMessage(prompt1) }
-                            ClaudePromptCard(title = prompt2, subtitle = sub2) { viewModel.sendMessage(prompt2) }
-                            ClaudePromptCard(title = prompt3, subtitle = sub3) { viewModel.sendMessage(prompt3) }
+                            CustomSuggestionCard(
+                                title = prompt1,
+                                subtitle = sub1,
+                                icon = Icons.Default.AutoAwesome
+                            ) { viewModel.sendMessage(prompt1) }
+
+                            CustomSuggestionCard(
+                                title = prompt2,
+                                subtitle = sub2,
+                                icon = Icons.Default.Explore
+                            ) { viewModel.sendMessage(prompt2) }
+
+                            CustomSuggestionCard(
+                                title = prompt3,
+                                subtitle = sub3,
+                                icon = Icons.Default.MenuBook
+                            ) { viewModel.sendMessage(prompt3) }
                         }
                     }
                 } else {
@@ -793,14 +845,14 @@ fun MainChatScreen(
                                         modifier = Modifier
                                             .size(24.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF0C241B))
-                                            .border(1.dp, EmeraldAccent.copy(alpha = 0.5f), CircleShape),
+                                            .background(GreenSurfaceTint)
+                                            .border(1.dp, GreenHighlight.copy(alpha = 0.5f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AutoAwesome,
                                             contentDescription = null,
-                                            tint = EmeraldAccent,
+                                            tint = GreenHighlight,
                                             modifier = Modifier.size(12.dp)
                                         )
                                     }
@@ -916,45 +968,90 @@ fun MainChatScreen(
     }
 }
 
+/**
+ * Custom Suggestion Card (Requirement 4)
+ * - Rounded corners (16-20dp) -> 18dp
+ * - Subtle shadow/glow in green
+ * - Icon on the left
+ * - Tinted dark-green background instead of just an outline
+ * - Ripple effect on tap with spring bounce press feedback
+ */
 @Composable
-private fun ClaudePromptCard(
+private fun CustomSuggestionCard(
     title: String,
     subtitle: String,
+    icon: ImageVector,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF141715))
-            .border(1.dp, Color(0x3310B981), RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        GreenSurfaceElevated,
+                        GreenSurfaceTint
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                Brush.horizontalGradient(
+                    listOf(
+                        GreenBorderGlow,
+                        GreenBorder
+                    )
+                ),
+                RoundedCornerShape(18.dp)
+            )
+            .bounceClick(scaleDown = 0.97f, onClick = onClick)
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Icon on the left in subtle glowing circle
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(GreenBright.copy(alpha = 0.15f))
+                    .border(1.dp, GreenHighlight.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = GreenHighlight,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 11.sp,
-                    color = TextSecondary
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GreenTextMuted
                 )
             }
-            Spacer(modifier = Modifier.width(10.dp))
+
+            Spacer(modifier = Modifier.width(12.dp))
+
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = EmeraldAccent.copy(alpha = 0.7f),
+                tint = GreenHighlight.copy(alpha = 0.8f),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -979,6 +1076,6 @@ private fun ThinkingDot(delayMs: Int) {
             .size(7.dp)
             .scale(scale)
             .clip(CircleShape)
-            .background(EmeraldAccent)
+            .background(GreenHighlight)
     )
 }

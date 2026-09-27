@@ -47,13 +47,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ConversationEntity
+import com.example.ui.components.bounceClick
 import com.example.ui.theme.AmberPro
 import com.example.ui.theme.DarkCanvas
+import com.example.ui.theme.DarkElevated
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
 import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.GreenBorder
+import com.example.ui.theme.GreenBorderGlow
+import com.example.ui.theme.GreenBright
+import com.example.ui.theme.GreenHighlight
+import com.example.ui.theme.GreenMuted
+import com.example.ui.theme.GreenSurfaceElevated
+import com.example.ui.theme.GreenSurfaceTint
+import com.example.ui.theme.GreenTextMuted
 import com.example.ui.theme.PurpleIncognito
 import com.example.ui.theme.PurpleIncognitoLight
 import com.example.ui.theme.TextMuted
@@ -156,9 +166,9 @@ fun DrawerContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF161A18))
-                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                    .clickable(onClick = onNewChat)
+                    .background(DarkSurfaceVariant)
+                    .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                    .bounceClick(scaleDown = 0.98f, onClick = onNewChat)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Row(
@@ -170,7 +180,7 @@ fun DrawerContent(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = EmeraldAccent,
+                            tint = GreenHighlight,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -186,10 +196,10 @@ fun DrawerContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isIncognito) PurpleIncognito.copy(alpha = 0.25f) else Color(0x1F27272A))
-                            .border(1.dp, if (isIncognito) PurpleIncognito else Color.Transparent, RoundedCornerShape(8.dp))
-                            .clickable(onClick = onToggleIncognito)
-                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                            .background(if (isIncognito) PurpleIncognito.copy(alpha = 0.25f) else DarkSurface)
+                            .border(1.dp, if (isIncognito) PurpleIncognito else GreenBorder, RoundedCornerShape(8.dp))
+                            .bounceClick(scaleDown = 0.95f, onClick = onToggleIncognito)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -280,13 +290,13 @@ fun DrawerContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) Color(0x2210B981) else Color.Transparent)
+                                .background(if (isSelected) GreenSurfaceElevated else Color.Transparent)
                                 .border(
                                     1.dp,
-                                    if (isSelected) EmeraldPrimary.copy(alpha = 0.4f) else Color.Transparent,
+                                    if (isSelected) GreenBorderGlow else Color.Transparent,
                                     RoundedCornerShape(10.dp)
                                 )
-                                .clickable { onSelectConversation(conv.id) }
+                                .bounceClick(scaleDown = 0.98f, onClick = { onSelectConversation(conv.id) })
                                 .padding(horizontal = 10.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -298,7 +308,7 @@ fun DrawerContent(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Chat,
                                     contentDescription = null,
-                                    tint = if (isSelected) EmeraldAccent else TextMuted,
+                                    tint = if (isSelected) GreenBright else GreenMuted,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -483,7 +493,7 @@ fun DrawerContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF161A18))
+                    .background(DarkElevated)
                     .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
@@ -612,7 +622,7 @@ fun DrawerContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onOpenSettings)
+                    .bounceClick(scaleDown = 0.98f, onClick = onOpenSettings)
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween

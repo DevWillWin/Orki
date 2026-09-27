@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -8,12 +7,14 @@ import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = EmeraldPrimary,
+    primary = GreenBright,
     onPrimary = Color.Black,
-    primaryContainer = EmeraldPrimaryDark,
+    primaryContainer = GreenPrimaryDark,
     onPrimaryContainer = Color.White,
-    secondary = EmeraldAccent,
+    secondary = GreenHighlight,
     onSecondary = Color.Black,
+    secondaryContainer = GreenSurfaceTint,
+    onSecondaryContainer = GreenHighlight,
     tertiary = AmberPro,
     onTertiary = Color.Black,
     background = DarkCanvas,
@@ -22,15 +23,22 @@ private val DarkColorScheme =
     onSurface = TextPrimary,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = TextSecondary,
+    surfaceTint = GreenHighlight,
     outline = DarkSurfaceBorder,
+    outlineVariant = GreenBorder,
     error = ErrorRed,
-    onError = Color.White
+    onError = Color.White,
+    errorContainer = ErrorRedDark,
+    onErrorContainer = Color(0xFFFCA5A5)
   )
 
 @Composable
 fun OrkiTheme(
   content: @Composable () -> Unit,
 ) {
-  MaterialTheme(colorScheme = DarkColorScheme, typography = Typography, content = content)
+  MaterialTheme(
+    colorScheme = DarkColorScheme,
+    typography = Typography,
+    content = content
+  )
 }
-

@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -49,8 +50,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.local.ChatMessageEntity
+import com.example.ui.components.bounceClick
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.GreenBorder
+import com.example.ui.theme.GreenBorderGlow
+import com.example.ui.theme.GreenBright
+import com.example.ui.theme.GreenHighlight
+import com.example.ui.theme.GreenMuted
+import com.example.ui.theme.GreenSurfaceElevated
+import com.example.ui.theme.GreenSurfaceTint
+import com.example.ui.theme.GreenTextMuted
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -70,7 +80,7 @@ fun ChatMessageItem(
     var isCopied by remember { mutableStateOf(false) }
 
     if (isUser) {
-        // User message: Sleek right-aligned rounded pill with signature emerald tint (like ChatGPT/Claude)
+        // User message: Sleek right-aligned rounded pill with layered emerald-dark surface
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -81,8 +91,12 @@ fun ChatMessageItem(
                 modifier = Modifier
                     .widthIn(max = 320.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF064E3B))
-                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF142B1D), Color(0xFF0F2016))
+                        )
+                    )
+                    .border(1.dp, GreenBorderGlow, RoundedCornerShape(20.dp))
                     .padding(horizontal = 14.dp, vertical = 11.dp)
             ) {
                 // If attachment is present, render attachment header
@@ -122,17 +136,17 @@ fun ChatMessageItem(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF0C241B))
-                        .border(1.dp, EmeraldAccent.copy(alpha = 0.6f), CircleShape),
+                        .background(GreenSurfaceTint)
+                        .border(1.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = "Orki AI",
-                        tint = EmeraldAccent,
-                        modifier = Modifier.size(14.dp)
+                        tint = GreenHighlight,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
 
@@ -150,12 +164,13 @@ fun ChatMessageItem(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(EmeraldPrimary.copy(alpha = 0.15f))
+                        .background(GreenSurfaceElevated)
+                        .border(1.dp, GreenBorder, RoundedCornerShape(6.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "Assistant",
-                        color = EmeraldAccent,
+                        color = GreenHighlight,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -166,13 +181,13 @@ fun ChatMessageItem(
             val formattedText = formatMarkdownText(message.text)
             Text(
                 text = formattedText,
-                color = Color(0xFFF3F4F6),
+                color = TextPrimary,
                 fontSize = 15.sp,
                 lineHeight = 24.sp,
                 modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
             )
 
-            // Bottom Action Bar: Listen & Copy buttons (ChatGPT/Claude style)
+            // Bottom Action Bar: Listen & Copy buttons with spring bounce feedback
             if (message.text.isNotBlank()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -184,22 +199,23 @@ fun ChatMessageItem(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0x2210B981))
-                            .clickable {
+                            .background(GreenSurfaceTint)
+                            .border(1.dp, GreenBorder, RoundedCornerShape(8.dp))
+                            .bounceClick {
                                 onPlayTts(message.ttsText ?: message.text)
                             }
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.VolumeUp,
                             contentDescription = "Listen",
-                            tint = EmeraldAccent,
+                            tint = GreenHighlight,
                             modifier = Modifier.size(15.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Listen",
-                            color = EmeraldAccent,
+                            color = GreenHighlight,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -210,7 +226,9 @@ fun ChatMessageItem(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable {
+                            .background(GreenSurfaceTint)
+                            .border(1.dp, GreenBorder, RoundedCornerShape(8.dp))
+                            .bounceClick {
                                 clipboardManager.setText(AnnotatedString(message.text))
                                 isCopied = true
                                 scope.launch {
@@ -218,18 +236,18 @@ fun ChatMessageItem(
                                     isCopied = false
                                 }
                             }
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = if (isCopied) Icons.Default.Check else Icons.Default.ContentCopy,
                             contentDescription = "Copy text",
-                            tint = if (isCopied) EmeraldAccent else TextMuted,
+                            tint = if (isCopied) GreenHighlight else TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (isCopied) "Copied" else "Copy",
-                            color = if (isCopied) EmeraldAccent else TextSecondary,
+                            color = if (isCopied) GreenHighlight else TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
