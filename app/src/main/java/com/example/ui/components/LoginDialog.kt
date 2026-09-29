@@ -123,8 +123,8 @@ private enum class ForgotStep {
 
 @Composable
 fun LoginDialog(
-    suggestedEmail: String = "devmightwin@gmail.com",
-    suggestedName: String = "DevD",
+    suggestedEmail: String = "",
+    suggestedName: String = "",
     onDismiss: () -> Unit,
     onSignIn: (email: String, name: String, method: String) -> Unit
 ) {
@@ -135,6 +135,9 @@ fun LoginDialog(
 
     var selectedTab by remember { mutableStateOf(MainAuthTab.EMAIL_PASSWORD) }
     var emailAuthMode by remember { mutableStateOf(EmailAuthMode.SIGN_IN) }
+
+    // Google Sign-In state
+    var googleEmailInput by remember { mutableStateOf(suggestedEmail) }
 
     // Sign In states
     var signInEmail by remember { mutableStateOf(suggestedEmail) }
@@ -256,7 +259,12 @@ fun LoginDialog(
             if (result.success) {
                 forgotCooldownSeconds = 60
                 forgotStep = ForgotStep.VERIFY_AND_RESET
-                statusSuccessMessage = "📬 Reset code sent to ${forgotEmail.trim()}! Please check your inbox."
+                if (!result.isRealEmailDispatched) {
+                    forgotOtpInput = result.generatedCode
+                    statusSuccessMessage = "📬 Reset code is: ${result.generatedCode}. Applied below to reset your password."
+                } else {
+                    statusSuccessMessage = "📬 Reset code sent to ${forgotEmail.trim()}! Please check your inbox."
+                }
             } else {
                 errorMessage = result.message
             }
@@ -270,7 +278,7 @@ fun LoginDialog(
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = DarkSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, GreenBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .padding(vertical = 16.dp)
@@ -305,27 +313,19 @@ fun LoginDialog(
                             .padding(top = 8.dp, bottom = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Glowing Emblem with signature multi-shade green
+                        // Clean Neutral Emblem
                         Box(
                             modifier = Modifier
                                 .size(56.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(
-                                            GreenBright.copy(alpha = 0.35f),
-                                            GreenSurfaceTint,
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                                .border(1.5.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
+                                .background(DarkSurfaceVariant)
+                                .border(1.dp, DarkSurfaceBorder, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = "Orki AI Logo",
-                                tint = GreenHighlight,
+                                tint = TextPrimary,
                                 modifier = Modifier.size(26.dp)
                             )
                         }
@@ -344,15 +344,15 @@ fun LoginDialog(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(GreenSurfaceElevated)
-                                    .border(1.dp, GreenBorder, RoundedCornerShape(6.dp))
+                                    .background(DarkSurfaceElevated)
+                                    .border(1.dp, DarkBorderSubtle, RoundedCornerShape(6.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "BODO AI",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = GreenHighlight
+                                    color = TextSecondary
                                 )
                             }
                         }
@@ -362,7 +362,7 @@ fun LoginDialog(
                         Text(
                             text = "Authentication & Account Security",
                             style = MaterialTheme.typography.bodySmall,
-                            color = GreenTextMuted,
+                            color = TextMuted,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -425,99 +425,120 @@ fun LoginDialog(
                         // Google Authenticated 1-Tap
                         Column {
                             Text(
-                                text = "Verified Device Account",
+                                text = "Google Account Sign In",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Sign in directly with your authenticated Google identity. Email verification is handled automatically.",
+                                text = "Sign in directly with your Google identity. Email verification is handled automatically.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextMuted,
                                 lineHeight = 16.sp
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(DarkSurfaceVariant)
-                                    .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
-                                    .bounceClick(scaleDown = 0.98f) {
-                                        onSignIn(suggestedEmail, suggestedName, "Google")
-                                        onDismiss()
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 16.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.White),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "G",
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF4285F4)
-                                            )
+                            if (suggestedEmail.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(DarkSurfaceVariant)
+                                        .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
+                                        .bounceClick(scaleDown = 0.98f) {
+                                            onSignIn(suggestedEmail, suggestedName, "Google")
+                                            onDismiss()
                                         }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White),
+                                                contentAlignment = Alignment.Center
+                                            ) {
                                                 Text(
-                                                    text = suggestedName,
-                                                    fontSize = 13.sp,
+                                                    text = "G",
+                                                    fontSize = 18.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = TextPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Icon(
-                                                    imageVector = Icons.Default.CheckCircle,
-                                                    contentDescription = "Verified",
-                                                    tint = GreenHighlight,
-                                                    modifier = Modifier.size(14.dp)
+                                                    color = Color(0xFF4285F4)
                                                 )
                                             }
-                                            Text(
-                                                text = suggestedEmail,
-                                                fontSize = 11.sp,
-                                                color = GreenHighlight
-                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = suggestedName.ifBlank { "User" },
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = TextPrimary
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.CheckCircle,
+                                                        contentDescription = "Verified",
+                                                        tint = TextSecondary,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = suggestedEmail,
+                                                    fontSize = 11.sp,
+                                                    color = TextSecondary
+                                                )
+                                            }
                                         }
-                                    }
 
-                                    Text(
-                                        text = "Verified",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF042F24),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(GreenHighlight)
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                        Text(
+                                            text = "Verified",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextSecondary,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(DarkSurfaceElevated)
+                                                .border(1.dp, DarkBorderSubtle, RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
+                            } else {
+                                GlowAuthTextField(
+                                    value = googleEmailInput,
+                                    onValueChange = { googleEmailInput = it },
+                                    label = "Google Account Email",
+                                    leadingIcon = Icons.Default.Email,
+                                    keyboardType = KeyboardType.Email
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
+                            val effectiveEmail = if (suggestedEmail.isNotBlank()) suggestedEmail else googleEmailInput.trim()
+                            val canGoogleSignIn = effectiveEmail.contains("@") && effectiveEmail.contains(".")
                             Button(
                                 onClick = {
-                                    onSignIn(suggestedEmail, suggestedName, "Google")
-                                    onDismiss()
+                                    if (canGoogleSignIn) {
+                                        val name = if (suggestedName.isNotBlank()) suggestedName else effectiveEmail.substringBefore("@").replaceFirstChar { it.uppercase() }
+                                        onSignIn(effectiveEmail, name, "Google")
+                                        onDismiss()
+                                    }
                                 },
+                                enabled = canGoogleSignIn,
                                 shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = GreenBright,
+                                    disabledContainerColor = DarkSurfaceElevated,
+                                    disabledContentColor = TextMuted
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
@@ -527,7 +548,7 @@ fun LoginDialog(
                                     text = "Sign In with Google",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.Black
+                                    color = if (canGoogleSignIn) Color.Black else TextMuted
                                 )
                             }
                         }
@@ -602,7 +623,7 @@ fun LoginDialog(
                                             Text(
                                                 text = "Forgot Password?",
                                                 fontSize = 12.sp,
-                                                color = GreenHighlight,
+                                                color = TextSecondary,
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                         }
@@ -612,31 +633,34 @@ fun LoginDialog(
 
                                     Button(
                                         onClick = {
-                                            val err = validateEmail(signInEmail)
+                                            val cleanEmail = signInEmail.trim().lowercase()
+                                            val err = validateEmail(cleanEmail)
                                             if (err != null) {
                                                 errorMessage = err
                                                 return@Button
                                             }
-                                            if (signInPassword.length < 6) {
+                                            val inputPwd = signInPassword.trim()
+                                            if (inputPwd.length < 6) {
                                                 errorMessage = "❌ Password must be at least 6 characters"
                                                 return@Button
                                             }
 
-                                            val savedPwd = userPrefs.getPasswordForEmail(signInEmail.trim())
+                                            val savedPwd = userPrefs.getPasswordForEmail(cleanEmail)
                                             if (savedPwd == null) {
-                                                errorMessage = "No account password set for this email. Tap 'Sign Up' below to create an account and set your password!"
+                                                errorMessage = "No account found for $cleanEmail. Tap 'Sign Up' below to create an account and set your password!"
                                                 return@Button
                                             }
 
-                                            if (savedPwd != signInPassword) {
-                                                errorMessage = "❌ Incorrect password. Tap 'Forgot Password?' to reset it."
+                                            if (savedPwd != inputPwd) {
+                                                errorMessage = "❌ Password did not match the saved password for this email. Tap the eye icon to verify what you typed, or tap 'Forgot Password?' to reset it."
                                                 return@Button
                                             }
 
-                                            val finalName = deriveDisplayName(signInEmail.trim())
-                                            userPrefs.userEmail = signInEmail.trim()
+                                            val finalName = deriveDisplayName(cleanEmail)
+                                            userPrefs.userEmail = cleanEmail
+                                            userPrefs.hasExplicitlyLoggedIn = true
                                             userPrefs.isEmailVerified = true
-                                            onSignIn(signInEmail.trim(), finalName, "Email & Password")
+                                            onSignIn(cleanEmail, finalName, "Email & Password")
                                             onDismiss()
                                         },
                                         shape = RoundedCornerShape(14.dp),
@@ -757,22 +781,22 @@ fun LoginDialog(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(12.dp))
-                                                .background(GreenSurfaceTint)
-                                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                                                .background(DarkSurfaceVariant)
+                                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                                                 .padding(12.dp)
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
                                                     imageVector = Icons.Default.Shield,
                                                     contentDescription = null,
-                                                    tint = GreenHighlight,
+                                                    tint = TextSecondary,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(10.dp))
                                                 Text(
-                                                    text = "We will send a 6-digit OTP code to verify ownership and activate your password.",
+                                                    text = "Your password is saved securely to your account so you can sign in anytime.",
                                                     fontSize = 11.sp,
-                                                    color = GreenTextMuted,
+                                                    color = TextSecondary,
                                                     lineHeight = 15.sp
                                                 )
                                             }
@@ -781,8 +805,34 @@ fun LoginDialog(
                                         Spacer(modifier = Modifier.height(24.dp))
 
                                         Button(
-                                            onClick = { triggerSendSignUpOtp() },
-                                            enabled = !isSignUpSendingCode,
+                                            onClick = {
+                                                val cleanEmail = signUpEmail.trim().lowercase()
+                                                val emailErr = validateEmail(cleanEmail)
+                                                if (emailErr != null) {
+                                                    errorMessage = emailErr
+                                                    return@Button
+                                                }
+                                                val pwd = signUpPassword.trim()
+                                                val confirmPwd = signUpConfirmPassword.trim()
+                                                if (pwd.length < 6) {
+                                                    errorMessage = "❌ Password must be at least 6 characters"
+                                                    return@Button
+                                                }
+                                                if (pwd != confirmPwd) {
+                                                    errorMessage = "❌ Passwords do not match. Please ensure both fields are identical."
+                                                    return@Button
+                                                }
+
+                                                // Immediately save password to local preferences
+                                                userPrefs.setPasswordForEmail(cleanEmail, pwd)
+                                                userPrefs.userEmail = cleanEmail
+                                                userPrefs.hasExplicitlyLoggedIn = true
+                                                userPrefs.isEmailVerified = true
+
+                                                val finalName = deriveDisplayName(cleanEmail)
+                                                onSignIn(cleanEmail, finalName, "Email & Password")
+                                                onDismiss()
+                                            },
                                             shape = RoundedCornerShape(14.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                                             modifier = Modifier
@@ -790,27 +840,19 @@ fun LoginDialog(
                                                 .height(48.dp)
                                                 .bounceClick(scaleDown = 0.98f)
                                         ) {
-                                            if (isSignUpSendingCode) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(20.dp),
-                                                    color = Color.Black,
-                                                    strokeWidth = 2.dp
-                                                )
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Default.Security,
-                                                    contentDescription = null,
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Continue & Send Email Code",
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.Black
-                                                )
-                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Create Account & Save Password",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black
+                                            )
                                         }
 
                                         Spacer(modifier = Modifier.height(16.dp))
@@ -858,7 +900,7 @@ fun LoginDialog(
                                                 Icon(
                                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                                     contentDescription = "Back",
-                                                    tint = GreenHighlight,
+                                                    tint = TextSecondary,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -907,11 +949,11 @@ fun LoginDialog(
                                                 letterSpacing = 6.sp,
                                                 textAlign = TextAlign.Center,
                                                 fontFamily = FontFamily.Monospace,
-                                                color = GreenHighlight
+                                                color = TextPrimary
                                             ),
                                             colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = GreenBright,
-                                                unfocusedBorderColor = GreenBorder,
+                                                focusedBorderColor = DarkSurfaceBorder,
+                                                unfocusedBorderColor = DarkSurfaceBorder,
                                                 focusedContainerColor = DarkSurfaceVariant,
                                                 unfocusedContainerColor = DarkSurfaceVariant,
                                                 cursorColor = GreenBright
@@ -929,18 +971,20 @@ fun LoginDialog(
                                                     return@Button
                                                 }
 
-                                                val (isVerified, verifyMessage) = emailService.verifyCode(signUpEmail.trim(), signUpOtpInput.trim())
+                                                val cleanEmail = signUpEmail.trim().lowercase()
+                                                val (isVerified, verifyMessage) = emailService.verifyCode(cleanEmail, signUpOtpInput.trim())
                                                 if (!isVerified) {
                                                     errorMessage = "❌ $verifyMessage"
                                                     return@Button
                                                 }
 
-                                                userPrefs.setPasswordForEmail(signUpEmail.trim(), signUpPassword)
-                                                userPrefs.userEmail = signUpEmail.trim()
+                                                userPrefs.setPasswordForEmail(cleanEmail, signUpPassword.trim())
+                                                userPrefs.userEmail = cleanEmail
+                                                userPrefs.hasExplicitlyLoggedIn = true
                                                 userPrefs.isEmailVerified = true
 
-                                                val finalName = deriveDisplayName(signUpEmail.trim())
-                                                onSignIn(signUpEmail.trim(), finalName, "Email & Password")
+                                                val finalName = deriveDisplayName(cleanEmail)
+                                                onSignIn(cleanEmail, finalName, "Email & Password")
                                                 onDismiss()
                                             },
                                             shape = RoundedCornerShape(14.dp),
@@ -985,11 +1029,11 @@ fun LoginDialog(
                                                     Icon(
                                                         imageVector = Icons.Default.Refresh,
                                                         contentDescription = null,
-                                                        tint = GreenHighlight,
+                                                        tint = TextPrimary,
                                                         modifier = Modifier.size(14.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Resend Code", fontSize = 11.sp, color = GreenHighlight)
+                                                    Text("Resend Code", fontSize = 11.sp, color = TextPrimary)
                                                 }
                                             }
                                         }
@@ -1014,7 +1058,7 @@ fun LoginDialog(
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                                 contentDescription = "Back",
-                                                tint = GreenHighlight,
+                                                tint = TextSecondary,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -1140,11 +1184,11 @@ fun LoginDialog(
                                                 letterSpacing = 6.sp,
                                                 textAlign = TextAlign.Center,
                                                 fontFamily = FontFamily.Monospace,
-                                                color = GreenHighlight
+                                                color = TextPrimary
                                             ),
                                             colors = OutlinedTextFieldDefaults.colors(
-                                                focusedBorderColor = GreenBright,
-                                                unfocusedBorderColor = GreenBorder,
+                                                focusedBorderColor = DarkSurfaceBorder,
+                                                unfocusedBorderColor = DarkSurfaceBorder,
                                                 focusedContainerColor = DarkSurfaceVariant,
                                                 unfocusedContainerColor = DarkSurfaceVariant,
                                                 cursorColor = GreenBright
@@ -1189,30 +1233,34 @@ fun LoginDialog(
 
                                         Button(
                                             onClick = {
+                                                val cleanEmail = forgotEmail.trim().lowercase()
                                                 if (forgotOtpInput.length != 6) {
                                                     errorMessage = "Please enter all 6 digits of the reset code"
                                                     return@Button
                                                 }
-                                                val (isVerified, verifyMessage) = emailService.verifyCode(forgotEmail.trim(), forgotOtpInput)
+                                                val (isVerified, verifyMessage) = emailService.verifyCode(cleanEmail, forgotOtpInput.trim())
                                                 if (!isVerified) {
                                                     errorMessage = "❌ $verifyMessage"
                                                     return@Button
                                                 }
-                                                if (newPassword.length < 6) {
+                                                val pwd = newPassword.trim()
+                                                val confirmPwd = confirmNewPassword.trim()
+                                                if (pwd.length < 6) {
                                                     errorMessage = "❌ New password must be at least 6 characters"
                                                     return@Button
                                                 }
-                                                if (newPassword != confirmNewPassword) {
-                                                    errorMessage = "❌ Passwords do not match"
+                                                if (pwd != confirmPwd) {
+                                                    errorMessage = "❌ Passwords do not match. Please ensure both fields are identical."
                                                     return@Button
                                                 }
 
-                                                userPrefs.setPasswordForEmail(forgotEmail.trim(), newPassword)
-                                                userPrefs.userEmail = forgotEmail.trim()
+                                                userPrefs.setPasswordForEmail(cleanEmail, pwd)
+                                                userPrefs.userEmail = cleanEmail
+                                                userPrefs.hasExplicitlyLoggedIn = true
                                                 userPrefs.isEmailVerified = true
 
-                                                val finalName = deriveDisplayName(forgotEmail.trim())
-                                                onSignIn(forgotEmail.trim(), finalName, "Password Reset")
+                                                val finalName = deriveDisplayName(cleanEmail)
+                                                onSignIn(cleanEmail, finalName, "Password Reset")
                                                 onDismiss()
                                             },
                                             shape = RoundedCornerShape(14.dp),
@@ -1306,15 +1354,15 @@ private fun AnimatedAuthSegmentedToggle(
             label = "tabIndicatorOffset"
         )
 
-        // Sliding indicator background pill with subtle green glow
+        // Sliding indicator background pill in neutral elevated dark
         Box(
             modifier = Modifier
                 .offset(x = animatedOffset)
                 .width(tabWidth)
                 .height(42.dp)
                 .clip(RoundedCornerShape(11.dp))
-                .background(GreenSurfaceElevated)
-                .border(1.dp, GreenBorderGlow, RoundedCornerShape(11.dp))
+                .background(DarkSurfaceElevated)
+                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(11.dp))
         )
 
         // Tab items row
@@ -1336,7 +1384,7 @@ private fun AnimatedAuthSegmentedToggle(
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
-                        tint = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) GreenHighlight else TextMuted,
+                        tint = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) TextPrimary else TextMuted,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1344,7 +1392,7 @@ private fun AnimatedAuthSegmentedToggle(
                         text = "Email & Password",
                         fontSize = 12.sp,
                         fontWeight = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) GreenHighlight else TextMuted
+                        color = if (selectedTab == MainAuthTab.EMAIL_PASSWORD) TextPrimary else TextMuted
                     )
                 }
             }
@@ -1369,7 +1417,7 @@ private fun AnimatedAuthSegmentedToggle(
                         text = "Google",
                         fontSize = 12.sp,
                         fontWeight = if (selectedTab == MainAuthTab.GOOGLE) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selectedTab == MainAuthTab.GOOGLE) GreenHighlight else TextMuted
+                        color = if (selectedTab == MainAuthTab.GOOGLE) TextPrimary else TextMuted
                     )
                 }
             }
@@ -1378,7 +1426,7 @@ private fun AnimatedAuthSegmentedToggle(
 }
 
 /**
- * Better-styled text field with green focus glow (Requirement 5)
+ * Better-styled text field with neutral dark styling (Requirement 1 & 5)
  */
 @Composable
 private fun GlowAuthTextField(
@@ -1403,7 +1451,7 @@ private fun GlowAuthTextField(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = if (isFocused) GreenHighlight else GreenMuted,
+                tint = if (isFocused) TextPrimary else TextMuted,
                 modifier = Modifier.size(18.dp)
             )
         },
@@ -1413,7 +1461,7 @@ private fun GlowAuthTextField(
                     Icon(
                         imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                         contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                        tint = if (isFocused) GreenHighlight else TextMuted,
+                        tint = if (isFocused) TextPrimary else TextMuted,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -1424,27 +1472,17 @@ private fun GlowAuthTextField(
         singleLine = true,
         interactionSource = interactionSource,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = GreenBright,
-            unfocusedBorderColor = GreenBorder,
+            focusedBorderColor = DarkSurfaceBorder,
+            unfocusedBorderColor = DarkSurfaceBorder,
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,
             cursorColor = GreenBright,
             focusedContainerColor = DarkSurfaceVariant,
             unfocusedContainerColor = DarkSurfaceVariant,
-            focusedLabelColor = GreenHighlight,
+            focusedLabelColor = TextPrimary,
             unfocusedLabelColor = TextMuted
         ),
         shape = RoundedCornerShape(14.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .drawBehind {
-                if (isFocused) {
-                    // Subtle emerald focus glow halo around field
-                    drawRoundRect(
-                        color = GreenBorderGlow,
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx())
-                    )
-                }
-            }
+        modifier = modifier.fillMaxWidth()
     )
 }

@@ -17,11 +17,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -39,9 +42,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.components.bounceClick
 import com.example.ui.theme.AmberPro
+import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
@@ -65,6 +70,8 @@ fun AttachmentPickerDialog(
     onSelectImage: () -> Unit,
     onSelectPdf: () -> Unit,
     onSelectText: () -> Unit,
+    onOpenImageGenerator: () -> Unit = {},
+    onVideoCreationClick: () -> Unit = {},
     onDismiss: () -> Unit,
     onUpgradeClick: () -> Unit
 ) {
@@ -75,7 +82,7 @@ fun AttachmentPickerDialog(
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = DarkSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, GreenBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -99,7 +106,7 @@ fun AttachmentPickerDialog(
                         Text(
                             text = "Images, text files, or PDFs",
                             fontSize = 12.sp,
-                            color = GreenTextMuted
+                            color = TextMuted
                         )
                     }
                     IconButton(
@@ -123,7 +130,7 @@ fun AttachmentPickerDialog(
                         .background(if (isLimitReached) Color(0x22EF4444) else DarkSurfaceVariant)
                         .border(
                             1.dp,
-                            if (isLimitReached) Color(0x66EF4444) else GreenBorder,
+                            if (isLimitReached) Color(0x66EF4444) else DarkSurfaceBorder,
                             RoundedCornerShape(14.dp)
                         )
                         .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -145,14 +152,14 @@ fun AttachmentPickerDialog(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
-                                        .background(if (currentPlan == "Pro") AmberPro.copy(alpha = 0.2f) else GreenBright.copy(alpha = 0.2f))
+                                        .background(if (currentPlan == "Pro") AmberPro.copy(alpha = 0.2f) else DarkSurfaceElevated)
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         text = currentPlan,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (currentPlan == "Pro") AmberPro else GreenHighlight
+                                        color = if (currentPlan == "Pro") AmberPro else TextSecondary
                                     )
                                 }
                             }
@@ -172,8 +179,8 @@ fun AttachmentPickerDialog(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(GreenSurfaceElevated)
-                                    .border(1.dp, GreenBorder, RoundedCornerShape(8.dp))
+                                    .background(DarkSurfaceElevated)
+                                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
                                     .bounceClick {
                                         onDismiss()
                                         onUpgradeClick()
@@ -184,7 +191,7 @@ fun AttachmentPickerDialog(
                                     text = "Upgrade",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = GreenHighlight
+                                    color = TextPrimary
                                 )
                             }
                         }
@@ -195,8 +202,8 @@ fun AttachmentPickerDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     FileTypeOptionCard(
                         icon = Icons.Default.Image,
-                        iconTint = GreenHighlight,
-                        iconBg = GreenBright.copy(alpha = 0.15f),
+                        iconTint = TextPrimary,
+                        iconBg = DarkSurfaceElevated,
                         title = "Images & Photos",
                         subtitle = "JPEG, PNG, WebP • Visual recognition & OCR",
                         badge = "Photo Picker",
@@ -231,6 +238,33 @@ fun AttachmentPickerDialog(
                             onSelectText()
                         }
                     )
+
+                    FileTypeOptionCard(
+                        icon = Icons.Default.AutoAwesome,
+                        iconTint = GreenHighlight,
+                        iconBg = GreenSurfaceElevated,
+                        title = "AI Image Generator",
+                        subtitle = "Cloudflare Worker • Synthesize images from text prompts",
+                        badge = "AI Worker",
+                        onClick = {
+                            onDismiss()
+                            onOpenImageGenerator()
+                        }
+                    )
+
+                    val isGuest = currentPlan == "Guest"
+                    FileTypeOptionCard(
+                        icon = if (isGuest) Icons.Default.Lock else Icons.Default.Videocam,
+                        iconTint = if (isGuest) Color(0xFFF87171) else AmberPro,
+                        iconBg = if (isGuest) Color(0x22EF4444) else Color(0x22F59E0B),
+                        title = "AI Video Creation",
+                        subtitle = if (isGuest) "Locked for Guests • Sign in to create videos" else "Generate 1080p AI Video sequences",
+                        badge = if (isGuest) "Members Only" else "Pro Tier",
+                        onClick = {
+                            onDismiss()
+                            onVideoCreationClick()
+                        }
+                    )
                 }
 
                 // Footer helper
@@ -240,7 +274,7 @@ fun AttachmentPickerDialog(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(DarkSurfaceVariant)
-                            .border(1.dp, GreenBorder, RoundedCornerShape(10.dp))
+                            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
                             .bounceClick {
                                 onDismiss()
                                 onUpgradeClick()
@@ -266,7 +300,7 @@ fun AttachmentPickerDialog(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
-                            tint = GreenHighlight,
+                            tint = TextMuted,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -290,8 +324,8 @@ private fun FileTypeOptionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(GreenSurfaceTint)
-            .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
+            .background(DarkSurfaceVariant)
+            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
             .bounceClick(scaleDown = 0.98f, onClick = onClick)
             .padding(14.dp)
     ) {
@@ -309,7 +343,7 @@ private fun FileTypeOptionCard(
                         .size(42.dp)
                         .clip(CircleShape)
                         .background(iconBg)
-                        .border(1.dp, iconTint.copy(alpha = 0.35f), CircleShape),
+                        .border(1.dp, DarkBorderSubtle, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -334,15 +368,15 @@ private fun FileTypeOptionCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(GreenSurfaceElevated)
-                                .border(1.dp, GreenBorder, RoundedCornerShape(4.dp))
+                                .background(DarkSurfaceElevated)
+                                .border(1.dp, DarkBorderSubtle, RoundedCornerShape(4.dp))
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
                                 text = badge,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = GreenHighlight
+                                color = TextSecondary
                             )
                         }
                     }
@@ -350,7 +384,7 @@ private fun FileTypeOptionCard(
                     Text(
                         text = subtitle,
                         fontSize = 10.sp,
-                        color = GreenTextMuted,
+                        color = TextMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -360,7 +394,7 @@ private fun FileTypeOptionCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = GreenHighlight.copy(alpha = 0.7f),
+                tint = TextMuted,
                 modifier = Modifier.size(16.dp)
             )
         }

@@ -43,6 +43,7 @@ import com.example.ui.theme.AmberPro
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.TextMuted
@@ -94,7 +95,7 @@ fun UpgradeDialog(
                             Icon(
                                 imageVector = Icons.Default.Shop,
                                 contentDescription = null,
-                                tint = EmeraldAccent,
+                                tint = TextSecondary,
                                 modifier = Modifier.size(11.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -158,7 +159,7 @@ fun UpgradeDialog(
                                 text = "PLUS",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = EmeraldAccent
+                                color = TextSecondary
                             )
                             Text(
                                 text = "$plusPrice$label",
@@ -314,7 +315,12 @@ private fun CycleTab(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) EmeraldPrimary else Color.Transparent)
+            .background(if (selected) DarkSurfaceVariant else Color.Transparent)
+            .border(
+                1.dp,
+                if (selected) DarkSurfaceBorder else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
@@ -323,7 +329,7 @@ private fun CycleTab(
             text = label,
             fontSize = 11.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) Color.White else TextSecondary
+            color = if (selected) TextPrimary else TextSecondary
         )
     }
 }

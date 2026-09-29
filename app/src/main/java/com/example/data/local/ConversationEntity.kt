@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class ConversationEntity(
     @PrimaryKey val id: String,
     val title: String,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val userEmail: String = ""
 )

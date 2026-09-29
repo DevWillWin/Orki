@@ -108,7 +108,7 @@ class UserPreferences(context: Context) {
         set(value) = prefs.edit().putString("arki_ui_lang", value).apply()
 
     var userName: String
-        get() = prefs.getString("arki_username", "") ?: ""
+        get() = prefs.getString("arki_username", "Guest") ?: "Guest"
         set(value) = prefs.edit().putString("arki_username", value).apply()
 
     var userPersona: String
@@ -116,7 +116,7 @@ class UserPreferences(context: Context) {
         set(value) = prefs.edit().putString("arki_persona", value).apply()
 
     var currentPlan: String
-        get() = prefs.getString("arki_plan", "Free") ?: "Free"
+        get() = prefs.getString("arki_plan", "Guest") ?: "Guest"
         set(value) = prefs.edit().putString("arki_plan", value).apply()
 
     var selectedModel: String
@@ -131,106 +131,157 @@ class UserPreferences(context: Context) {
         get() = prefs.getString("arki_voice", "female_mainao") ?: "female_mainao"
         set(value) = prefs.edit().putString("arki_voice", value).apply()
 
+    var hasExplicitlyLoggedIn: Boolean
+        get() = prefs.getBoolean("has_explicitly_logged_in", false)
+        set(value) = prefs.edit().putBoolean("has_explicitly_logged_in", value).apply()
+
     var isLoggedIn: Boolean
-        get() = prefs.getBoolean("user_logged_in", true)
+        get() = prefs.getBoolean("user_logged_in", false) && prefs.getBoolean("has_explicitly_logged_in", false)
         set(value) = prefs.edit().putBoolean("user_logged_in", value).apply()
 
     var isEmailVerified: Boolean
-        get() = prefs.getBoolean("user_email_verified", true)
+        get() = prefs.getBoolean("user_email_verified", false)
         set(value) = prefs.edit().putBoolean("user_email_verified", value).apply()
 
     var authMethod: String
-        get() = prefs.getString("user_auth_method", "Google") ?: "Google"
+        get() = prefs.getString("user_auth_method", "Guest") ?: "Guest"
         set(value) = prefs.edit().putString("user_auth_method", value).apply()
 
     var resendApiKey: String
         get() = prefs.getString("resend_api_key", "") ?: ""
         set(value) = prefs.edit().putString("resend_api_key", value).apply()
 
+    var imageWorkerUrl: String
+        get() = prefs.getString("image_worker_url", "https://orki-img-gen.devmightwin.workers.dev") ?: "https://orki-img-gen.devmightwin.workers.dev"
+        set(value) = prefs.edit().putString("image_worker_url", value).apply()
+
+    var imageApiKey: String
+        get() = prefs.getString("image_api_key", "Orki-Image-7xP6-kQ9m-81vL") ?: "Orki-Image-7xP6-kQ9m-81vL"
+        set(value) = prefs.edit().putString("image_api_key", value).apply()
+
     var userEmail: String
-        get() = prefs.getString("user_email", "devmightwin@gmail.com") ?: "devmightwin@gmail.com"
+        get() = if (isLoggedIn) (prefs.getString("user_email", "") ?: "") else ""
         set(value) = prefs.edit().putString("user_email", value).apply()
 
     fun getPasswordForEmail(email: String): String? {
-        val key = "user_pwd_" + email.lowercase().trim()
-        return prefs.getString(key, null)
+        val clean = email.lowercase().trim()
+        if (clean.isEmpty()) return null
+        val key = "user_pwd_" + clean
+        return prefs.getString(key, null)?.trim()
     }
 
     fun hasPassword(email: String): Boolean {
-        return getPasswordForEmail(email) != null
+        return !getPasswordForEmail(email).isNullOrEmpty()
     }
 
     fun setPasswordForEmail(email: String, pwd: String) {
-        val key = "user_pwd_" + email.lowercase().trim()
-        prefs.edit().putString(key, pwd).apply()
+        val clean = email.lowercase().trim()
+        if (clean.isNotEmpty()) {
+            val key = "user_pwd_" + clean
+            prefs.edit().putString(key, pwd.trim()).commit()
+        }
+    }
+
+    fun getPlanForEmail(email: String): String? {
+        val clean = email.lowercase().trim()
+        if (clean.isEmpty()) return null
+        return prefs.getString("plan_$clean", null)
+    }
+
+    fun setPlanForEmail(email: String, plan: String) {
+        val clean = email.lowercase().trim()
+        if (clean.isNotEmpty()) {
+            prefs.edit().putString("plan_$clean", plan).apply()
+        }
     }
 
     private fun getTodayString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     }
 
-    fun getDailyUsage(): Int {
+    private fun getUsageKey(prefix: String, email: String): String {
+        val clean = email.lowercase().trim()
+        return if (clean.isEmpty()) "guest_$prefix" else "u_${clean}_$prefix"
+    }
+
+    fun getDailyUsage(email: String = userEmail): Int {
         val today = getTodayString()
-        val lastDate = prefs.getString("usage_date", "") ?: ""
+        val key = getUsageKey("usage", email)
+        val lastDate = prefs.getString("${key}_date", "") ?: ""
         return if (lastDate == today) {
-            prefs.getInt("usage_count", 0)
+            prefs.getInt("${key}_count", 0)
         } else {
-            prefs.edit().putString("usage_date", today).putInt("usage_count", 0).apply()
+            prefs.edit().putString("${key}_date", today).putInt("${key}_count", 0).apply()
             0
         }
     }
 
-    fun incrementDailyUsage(): Int {
+    fun incrementDailyUsage(email: String = userEmail): Int {
         val today = getTodayString()
-        val lastDate = prefs.getString("usage_date", "") ?: ""
-        val current = if (lastDate == today) prefs.getInt("usage_count", 0) else 0
+        val key = getUsageKey("usage", email)
+        val lastDate = prefs.getString("${key}_date", "") ?: ""
+        val current = if (lastDate == today) prefs.getInt("${key}_count", 0) else 0
         val updated = current + 1
-        prefs.edit().putString("usage_date", today).putInt("usage_count", updated).apply()
+        prefs.edit().putString("${key}_date", today).putInt("${key}_count", updated).apply()
         return updated
     }
 
     fun getDailyLimit(plan: String): Int {
         return when (plan) {
-            "Guest" -> 5
+            "Guest" -> 4  // User request: guests can only write 4 messages
             "Free" -> 15
             "Plus" -> 50
             "Pro" -> 150
-            else -> 15
+            else -> 4
         }
     }
 
-    fun getDailyUploadUsage(): Int {
+    fun getDailyUploadUsage(email: String = userEmail): Int {
         val today = getTodayString()
-        val lastDate = prefs.getString("upload_usage_date", "") ?: ""
+        val key = getUsageKey("upload", email)
+        val lastDate = prefs.getString("${key}_date", "") ?: ""
         return if (lastDate == today) {
-            prefs.getInt("upload_usage_count", 0)
+            prefs.getInt("${key}_count", 0)
         } else {
-            prefs.edit().putString("upload_usage_date", today).putInt("upload_usage_count", 0).apply()
+            prefs.edit().putString("${key}_date", today).putInt("${key}_count", 0).apply()
             0
         }
     }
 
-    fun incrementDailyUploadUsage(): Int {
+    fun incrementDailyUploadUsage(email: String = userEmail): Int {
         val today = getTodayString()
-        val lastDate = prefs.getString("upload_usage_date", "") ?: ""
-        val current = if (lastDate == today) prefs.getInt("upload_usage_count", 0) else 0
+        val key = getUsageKey("upload", email)
+        val lastDate = prefs.getString("${key}_date", "") ?: ""
+        val current = if (lastDate == today) prefs.getInt("${key}_count", 0) else 0
         val updated = current + 1
-        prefs.edit().putString("upload_usage_date", today).putInt("upload_usage_count", updated).apply()
+        prefs.edit().putString("${key}_date", today).putInt("${key}_count", updated).apply()
         return updated
     }
 
     fun getDailyUploadLimit(plan: String): Int {
         return when (plan) {
-            "Guest" -> 0
-            "Free" -> 2   // User request: Free tier is capped at exactly 2 uploads
+            "Guest" -> 0  // Guests cannot upload attachments
+            "Free" -> 2   // Free tier capped at 2 uploads
             "Plus" -> 20  // Plus tier: 20 uploads
             "Pro" -> 100  // Pro tier: 100 uploads
-            else -> 2
+            else -> 0
         }
     }
 
-    fun canUpload(plan: String): Boolean {
+    fun canUpload(plan: String, email: String = userEmail): Boolean {
         val limit = getDailyUploadLimit(plan)
-        return getDailyUploadUsage() < limit
+        return getDailyUploadUsage(email) < limit
+    }
+
+    fun resetGuestUsage() {
+        val today = getTodayString()
+        val key = getUsageKey("usage", "")
+        val uploadKey = getUsageKey("upload", "")
+        prefs.edit()
+            .putString("${key}_date", today)
+            .putInt("${key}_count", 0)
+            .putString("${uploadKey}_date", today)
+            .putInt("${uploadKey}_count", 0)
+            .apply()
     }
 }

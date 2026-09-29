@@ -2,26 +2,26 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Layered Dark Theme: 3 near-black tonal surfaces with organic green depth
-val DarkCanvas = Color(0xFF0D0F0D)          // Canvas / screen background (#0D0F0D)
-val DarkSurface = Color(0xFF161A16)         // Cards, drawer, content surfaces (#161A16)
-val DarkSurfaceVariant = Color(0xFF1F241F)  // Elevated elements, inputs, capsule (#1F241F)
-val DarkSurfaceElevated = Color(0xFF262C26) // Higher elevation dialogs, popups
-val DarkElevated = Color(0xFF1F241F)        // Elevated elements alias (#1F241F)
-val DarkDeepElevated = Color(0xFF262C26)    // Deep elevated cards
-val DarkSurfaceBorder = Color(0xFF232A23)   // Subtle surface separation border
-val DarkBorderSubtle = Color(0xFF1B201B)    // Hairline divider
+// Layered Dark Neutral Theme: 4 tonal surfaces with real depth (Requirement 4)
+val DarkCanvas = Color(0xFF0F1012)          // Layer 1: App screen canvas background (#0F1012)
+val DarkSurface = Color(0xFF16181B)         // Layer 2: Modal, drawer, surface dialogs (#16181B)
+val DarkSurfaceVariant = Color(0xFF1E2126)  // Layer 3: Default cards, containers, composer (#1E2126)
+val DarkSurfaceElevated = Color(0xFF262A30) // Layer 4: Inputs, nested pills, elevated bars (#262A30)
+val DarkElevated = Color(0xFF262A30)        // Elevated elements alias (#262A30)
+val DarkDeepElevated = Color(0xFF2E333C)    // Deep elevated cards
+val DarkSurfaceBorder = Color(0xFF2C313A)   // Neutral card & container border (#2C313A)
+val DarkBorderSubtle = Color(0xFF21252C)    // Hairline divider
 
-// Multiple shades of green for balanced, non-monotone accents
-val GreenBright = Color(0xFF10B981)         // Primary action / bright highlight (#10B981)
-val GreenHighlight = Color(0xFF34D399)      // Vibrant glow, active indicators (#34D399)
-val GreenPrimaryDark = Color(0xFF059669)    // Containers / pressed state
-val GreenMuted = Color(0xFF52796F)          // Secondary elements, desaturated green
-val GreenBorder = Color(0xFF243B2E)         // Green-tinted border for cards
-val GreenBorderGlow = Color(0x6610B981)     // Subtle green glow for cards / focus
-val GreenSurfaceTint = Color(0xFF131D16)    // Tinted dark-green background for suggestion cards
-val GreenSurfaceElevated = Color(0xFF19251D)// Elevated suggestion card background
-val GreenTextMuted = Color(0xFF86A391)      // Muted desaturated green caption text
+// Green Accent: Restrained for primary CTAs and active/selected states only (Requirement 1 & 3)
+val GreenBright = Color(0xFF10B981)         // Primary action / CTA fill (#10B981)
+val GreenHighlight = Color(0xFF34D399)      // Active state indicator, selected radio (#34D399)
+val GreenPrimaryDark = Color(0xFF059669)    // Pressed CTA state
+val GreenMuted = Color(0xFF6B7280)          // Neutral muted gray for secondary icons/indicators
+val GreenBorder = Color(0xFF2C313A)         // Neutral border alias to eliminate green border overuse
+val GreenBorderGlow = Color(0x6610B981)     // Green outline reserved strictly for actively selected items
+val GreenSurfaceTint = Color(0xFF14241B)    // Subtle tint for actively selected items ONLY
+val GreenSurfaceElevated = Color(0xFF1B2F23)// Elevated tint for actively selected items ONLY
+val GreenTextMuted = Color(0xFF9CA3AF)      // Neutral muted gray for subtitles/captions (Requirement 2)
 
 // Aliases for backwards compatibility
 val EmeraldPrimary = GreenBright
@@ -36,10 +36,10 @@ val AmberProLight = Color(0xFFFDE68A)
 val PurpleIncognito = Color(0xFF9333EA)
 val PurpleIncognitoLight = Color(0xFFD8B4FE)
 
-// Typography colors
-val TextPrimary = Color(0xFFF4F6F4)
-val TextSecondary = Color(0xFFA1ABA3)
-val TextMuted = Color(0xFF6F7972)
+// Clean Neutral Typography colors (Requirement 2)
+val TextPrimary = Color(0xFFF3F4F6)         // Crisp primary white (#F3F4F6)
+val TextSecondary = Color(0xFF9CA3AF)       // Muted gray for secondary descriptions/badges (#9CA3AF)
+val TextMuted = Color(0xFF6B7280)           // Muted gray for captions & hints (#6B7280)
 
 val ErrorRed = Color(0xFFEF4444)
 val ErrorRedDark = Color(0xFF3B1212)

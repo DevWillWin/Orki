@@ -58,12 +58,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.preferences.VoiceOptions
 import com.example.ui.theme.AmberPro
+import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
 import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.GreenBright
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -119,14 +121,14 @@ fun SettingsDialog(
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF0F261D))
-                                    .border(1.dp, EmeraldAccent.copy(alpha = 0.5f), CircleShape),
+                                    .background(DarkSurfaceVariant)
+                                    .border(1.dp, DarkSurfaceBorder, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = null,
-                                    tint = EmeraldAccent,
+                                    tint = TextPrimary,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -235,10 +237,11 @@ fun SettingsDialog(
                                 },
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = EmeraldPrimary,
+                                    focusedBorderColor = DarkSurfaceBorder,
                                     unfocusedBorderColor = DarkSurfaceBorder,
                                     focusedTextColor = TextPrimary,
                                     unfocusedTextColor = TextPrimary,
+                                    cursorColor = GreenBright,
                                     focusedContainerColor = DarkCanvas,
                                     unfocusedContainerColor = DarkCanvas
                                 ),
@@ -274,10 +277,11 @@ fun SettingsDialog(
                                 },
                                 maxLines = 3,
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = EmeraldPrimary,
+                                    focusedBorderColor = DarkSurfaceBorder,
                                     unfocusedBorderColor = DarkSurfaceBorder,
                                     focusedTextColor = TextPrimary,
                                     unfocusedTextColor = TextPrimary,
+                                    cursorColor = GreenBright,
                                     focusedContainerColor = DarkCanvas,
                                     unfocusedContainerColor = DarkCanvas
                                 ),
@@ -344,7 +348,7 @@ fun SettingsDialog(
                                 Text(
                                     text = if (script == "deva") "बर' फरायनो" else "Roman script",
                                     fontSize = 11.sp,
-                                    color = EmeraldAccent
+                                    color = TextSecondary
                                 )
                             }
                             Row(
@@ -396,18 +400,16 @@ fun SettingsDialog(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(
                                                 if (currentPlan == "Pro") AmberPro.copy(alpha = 0.2f)
-                                                else if (currentPlan == "Plus") EmeraldPrimary.copy(alpha = 0.2f)
                                                 else DarkSurfaceVariant
                                             )
+                                            .border(1.dp, DarkBorderSubtle, RoundedCornerShape(6.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
                                         Text(
                                             text = currentPlan,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (currentPlan == "Pro") AmberPro
-                                            else if (currentPlan == "Plus") EmeraldAccent
-                                            else TextSecondary
+                                            color = if (currentPlan == "Pro") AmberPro else TextSecondary
                                         )
                                     }
                                 }
@@ -427,8 +429,8 @@ fun SettingsDialog(
                                         onDismiss()
                                         onUpgradeClick()
                                     },
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AmberPro),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AmberPro.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
                                     shape = RoundedCornerShape(8.dp),
                                     modifier = Modifier.height(32.dp)
                                 ) {
@@ -476,7 +478,7 @@ fun SettingsDialog(
                                 onSave(script, uiLang, name.trim(), persona.trim(), voice)
                                 onDismiss()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenBright),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1.5f)
@@ -484,7 +486,7 @@ fun SettingsDialog(
                         ) {
                             Text(
                                 text = "Save Changes",
-                                color = Color.White,
+                                color = Color.Black,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -516,7 +518,7 @@ private fun SettingsSection(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.8.sp,
-                color = EmeraldAccent
+                color = TextSecondary
             )
             Spacer(modifier = Modifier.height(2.dp))
             content()
@@ -623,7 +625,7 @@ private fun VoiceOptionCard(
                     Icon(
                         imageVector = Icons.Default.VolumeUp,
                         contentDescription = "Preview voice",
-                        tint = if (isSelected) EmeraldAccent else TextSecondary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -708,7 +710,12 @@ private fun SegmentedPill(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) EmeraldPrimary else Color.Transparent)
+            .background(if (selected) DarkSurfaceVariant else Color.Transparent)
+            .border(
+                1.dp,
+                if (selected) DarkSurfaceBorder else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -717,7 +724,7 @@ private fun SegmentedPill(
             text = label,
             fontSize = 11.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) Color.White else TextSecondary
+            color = if (selected) TextPrimary else TextSecondary
         )
     }
 }

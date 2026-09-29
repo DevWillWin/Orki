@@ -19,13 +19,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import android.content.Intent
+import android.widget.Toast
+import com.example.data.network.ImageGenerationService
+import java.io.File
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +63,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.local.ChatMessageEntity
 import com.example.ui.components.bounceClick
+import com.example.ui.theme.DarkBorderSubtle
+import com.example.ui.theme.DarkCanvas
+import com.example.ui.theme.DarkSurface
+import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GreenBorder
@@ -80,7 +98,7 @@ fun ChatMessageItem(
     var isCopied by remember { mutableStateOf(false) }
 
     if (isUser) {
-        // User message: Sleek right-aligned rounded pill with layered emerald-dark surface
+        // User message: Sleek right-aligned rounded pill with layered neutral dark surface (Requirement 1, 3, 4)
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -91,12 +109,8 @@ fun ChatMessageItem(
                 modifier = Modifier
                     .widthIn(max = 320.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF142B1D), Color(0xFF0F2016))
-                        )
-                    )
-                    .border(1.dp, GreenBorderGlow, RoundedCornerShape(20.dp))
+                    .background(DarkSurfaceElevated)
+                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(20.dp))
                     .padding(horizontal = 14.dp, vertical = 11.dp)
             ) {
                 // If attachment is present, render attachment header
@@ -138,14 +152,14 @@ fun ChatMessageItem(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(GreenSurfaceTint)
-                        .border(1.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
+                        .background(DarkSurfaceVariant)
+                        .border(1.dp, DarkSurfaceBorder, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = "Orki AI",
-                        tint = GreenHighlight,
+                        tint = TextPrimary,
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -164,17 +178,26 @@ fun ChatMessageItem(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(GreenSurfaceElevated)
-                        .border(1.dp, GreenBorder, RoundedCornerShape(6.dp))
+                        .background(DarkSurfaceElevated)
+                        .border(1.dp, DarkBorderSubtle, RoundedCornerShape(6.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "Assistant",
-                        color = GreenHighlight,
+                        color = TextMuted,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+
+            // If assistant generated an image, display the artwork card
+            if (message.attachmentUri != null && (message.attachmentType == "image" || message.attachmentType == "generated_image")) {
+                GeneratedImageAssistantCard(
+                    imageUri = message.attachmentUri,
+                    prompt = message.text
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Message text body formatted with clean typography
@@ -199,8 +222,8 @@ fun ChatMessageItem(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(GreenSurfaceTint)
-                            .border(1.dp, GreenBorder, RoundedCornerShape(8.dp))
+                            .background(DarkSurfaceVariant)
+                            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
                             .bounceClick {
                                 onPlayTts(message.ttsText ?: message.text)
                             }
@@ -209,13 +232,13 @@ fun ChatMessageItem(
                         Icon(
                             imageVector = Icons.Default.VolumeUp,
                             contentDescription = "Listen",
-                            tint = GreenHighlight,
+                            tint = TextSecondary,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Listen",
-                            color = GreenHighlight,
+                            color = TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -226,8 +249,8 @@ fun ChatMessageItem(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(GreenSurfaceTint)
-                            .border(1.dp, GreenBorder, RoundedCornerShape(8.dp))
+                            .background(DarkSurfaceVariant)
+                            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
                             .bounceClick {
                                 clipboardManager.setText(AnnotatedString(message.text))
                                 isCopied = true
@@ -268,7 +291,7 @@ fun formatMarkdownText(raw: String) = buildAnnotatedString {
             raw.startsWith("**", i) -> {
                 val end = raw.indexOf("**", i + 2)
                 if (end != -1) {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = EmeraldAccent)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = TextPrimary)) {
                         append(raw.substring(i + 2, end))
                     }
                     i = end + 2
@@ -285,7 +308,7 @@ fun formatMarkdownText(raw: String) = buildAnnotatedString {
                         SpanStyle(
                             fontFamily = FontFamily.Monospace,
                             background = Color(0x33000000),
-                            color = EmeraldAccent,
+                            color = TextPrimary,
                             fontSize = 13.sp
                         )
                     ) {
@@ -320,8 +343,8 @@ private fun AttachmentBubbleCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF042F2E))
-                    .border(1.dp, Color(0x3310B981), RoundedCornerShape(12.dp))
+                    .background(DarkSurfaceVariant)
+                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
             ) {
                 if (uri != null) {
                     Box(
@@ -329,7 +352,7 @@ private fun AttachmentBubbleCard(
                             .fillMaxWidth()
                             .height(180.dp)
                             .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                            .background(Color(0xFF021E1D)),
+                            .background(DarkCanvas),
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
@@ -351,7 +374,7 @@ private fun AttachmentBubbleCard(
                     Icon(
                         imageVector = Icons.Default.Image,
                         contentDescription = null,
-                        tint = EmeraldAccent,
+                        tint = TextSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -369,7 +392,7 @@ private fun AttachmentBubbleCard(
                         Text(
                             text = formattedSize,
                             fontSize = 10.sp,
-                            color = Color(0xFFA7F3D0)
+                            color = TextMuted
                         )
                     }
                 }
@@ -456,6 +479,193 @@ private fun AttachmentBubbleCard(
                         text = if (formattedSize != null) "Text File • $formattedSize" else "Text Document",
                         fontSize = 11.sp,
                         color = Color(0xFFBAE6FD)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GeneratedImageAssistantCard(
+    imageUri: String,
+    prompt: String
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val imageService = remember { ImageGenerationService(context) }
+    var showFullPreview by remember { mutableStateOf(false) }
+    var isSaved by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(DarkCanvas)
+            .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .clickable { showFullPreview = true }
+        ) {
+            AsyncImage(
+                model = imageUri,
+                contentDescription = prompt,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            )
+
+            // Zoom hint badge
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99000000))
+                    .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.OpenInFull,
+                    contentDescription = "Expand image",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Bottom action bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = GreenHighlight,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Generated with Orki AI Worker",
+                    fontSize = 11.sp,
+                    color = TextMuted
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Save to Gallery
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurfaceElevated)
+                        .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
+                        .clickable {
+                            scope.launch {
+                                val file = File(imageUri)
+                                if (file.exists()) {
+                                    val res = imageService.saveImageToGallery(file, prompt)
+                                    res.onSuccess {
+                                        isSaved = true
+                                        Toast.makeText(context, "Saved to Pictures / Orki AI!", Toast.LENGTH_SHORT).show()
+                                    }.onFailure {
+                                        Toast.makeText(context, "Could not save: ${it.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Image file not found", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Default.Check else Icons.Default.Download,
+                        contentDescription = "Save image",
+                        tint = if (isSaved) GreenHighlight else TextSecondary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isSaved) "Saved" else "Save",
+                        color = if (isSaved) GreenHighlight else TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Share
+                IconButton(
+                    onClick = {
+                        val file = File(imageUri)
+                        if (file.exists()) {
+                            scope.launch {
+                                val uriRes = imageService.saveImageToGallery(file, prompt)
+                                uriRes.onSuccess { uri ->
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "image/png"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_TEXT, "Generated by Orki AI: $prompt")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showFullPreview) {
+        Dialog(onDismissRequest = { showFullPreview = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DarkCanvas)
+                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
+                    .padding(8.dp)
+            ) {
+                AsyncImage(
+                    model = imageUri,
+                    contentDescription = prompt,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                )
+                IconButton(
+                    onClick = { showFullPreview = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x99000000))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close preview",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

@@ -11,17 +11,21 @@ import com.example.data.billing.PlayBillingManager
 import com.example.data.local.AppDatabase
 import com.example.data.local.ChatMessageEntity
 import com.example.data.local.ConversationEntity
+import com.example.data.network.ImageGenerationService
 import com.example.data.network.OrkiApiService
 import com.example.data.preferences.UserPreferences
 import com.example.data.preferences.VoiceOptions
 import com.example.util.AttachedFile
 import com.example.util.FileUploadHelper
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -47,24 +51,25 @@ data class UiState(
     val liveTalkTranscript: String = "",
     val script: String = "deva",
     val uiLanguage: String = "deva",
-    val userName: String = "",
+    val userName: String = "Guest",
     val userPersona: String = "",
-    val currentPlan: String = "Free",
+    val currentPlan: String = "Guest",
     val dailyUsage: Int = 0,
-    val dailyLimit: Int = 20,
+    val dailyLimit: Int = 4,
     val dailyUploadUsage: Int = 0,
-    val dailyUploadLimit: Int = 2,
+    val dailyUploadLimit: Int = 0,
     val attachedFile: AttachedFile? = null,
     val isProcessingFile: Boolean = false,
     val selectedModel: String = "orki-3.0",
     val selectedVoice: String = "female_mainao",
     val isIncognito: Boolean = false,
-    val isLoggedIn: Boolean = true,
-    val isEmailVerified: Boolean = true,
-    val authMethod: String = "Google",
-    val userEmail: String = "devmightwin@gmail.com",
+    val isLoggedIn: Boolean = false,
+    val isEmailVerified: Boolean = false,
+    val authMethod: String = "Guest",
+    val userEmail: String = "",
     val errorMessage: String? = null,
-    val triggerUpgradeDialog: Boolean = false
+    val triggerUpgradeDialog: Boolean = false,
+    val triggerLoginDialog: Boolean = false
 )
 
 class OrkiViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,8 +81,19 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
 
     val audioManager = AudioManager(application, viewModelScope)
     val billingManager = PlayBillingManager(application, viewModelScope)
+    val imageService = ImageGenerationService(application)
 
-    val conversations: StateFlow<List<ConversationEntity>> = dao.getAllConversations()
+    private val activeUserEmailFlow = MutableStateFlow(if (prefs.isLoggedIn) prefs.userEmail.ifBlank { "" } else "")
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val conversations: StateFlow<List<ConversationEntity>> = activeUserEmailFlow
+        .flatMapLatest { email ->
+            if (email.isBlank()) {
+                flowOf(emptyList()) // Guests or logged out users do not see previous user chats
+            } else {
+                dao.getConversationsForUser(email)
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val audioPlayerState: StateFlow<AudioPlayerState> = audioManager.playerState
@@ -87,20 +103,20 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         UiState(
             script = prefs.script,
             uiLanguage = prefs.uiLanguage,
-            userName = prefs.userName,
+            userName = if (prefs.isLoggedIn) prefs.userName.ifBlank { "User" } else "Guest",
             userPersona = prefs.userPersona,
-            currentPlan = prefs.currentPlan,
-            dailyUsage = prefs.getDailyUsage(),
-            dailyLimit = prefs.getDailyLimit(prefs.currentPlan),
-            dailyUploadUsage = prefs.getDailyUploadUsage(),
-            dailyUploadLimit = prefs.getDailyUploadLimit(prefs.currentPlan),
+            currentPlan = if (prefs.isLoggedIn) prefs.currentPlan else "Guest",
+            dailyUsage = prefs.getDailyUsage(if (prefs.isLoggedIn) prefs.userEmail else ""),
+            dailyLimit = prefs.getDailyLimit(if (prefs.isLoggedIn) prefs.currentPlan else "Guest"),
+            dailyUploadUsage = prefs.getDailyUploadUsage(if (prefs.isLoggedIn) prefs.userEmail else ""),
+            dailyUploadLimit = prefs.getDailyUploadLimit(if (prefs.isLoggedIn) prefs.currentPlan else "Guest"),
             selectedModel = prefs.selectedModel,
             selectedVoice = prefs.selectedVoice,
             isIncognito = prefs.isIncognito,
             isLoggedIn = prefs.isLoggedIn,
             isEmailVerified = prefs.isEmailVerified,
-            authMethod = prefs.authMethod,
-            userEmail = prefs.userEmail
+            authMethod = if (prefs.isLoggedIn) prefs.authMethod else "Guest",
+            userEmail = if (prefs.isLoggedIn) prefs.userEmail else ""
         )
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -227,38 +243,84 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun signIn(email: String, name: String, method: String = "Google", verified: Boolean = true) {
+        val cleanEmail = email.trim()
+        val displayName = if (name.isNotBlank()) name else (cleanEmail.substringBefore("@").replaceFirstChar { it.uppercase() })
+        val userPlan = prefs.getPlanForEmail(cleanEmail) ?: "Free"
+
+        prefs.hasExplicitlyLoggedIn = true
         prefs.isLoggedIn = true
         prefs.isEmailVerified = verified
         prefs.authMethod = method
-        prefs.userEmail = email
-        if (name.isNotBlank()) {
-            prefs.userName = name
-        }
+        prefs.userEmail = cleanEmail
+        prefs.userName = displayName
+        prefs.currentPlan = userPlan
+
+        cancelGeneration()
+        audioManager.stopPlayback()
+        activeUserEmailFlow.value = cleanEmail
+
+        val limit = prefs.getDailyLimit(userPlan)
+        val usage = prefs.getDailyUsage(cleanEmail)
+        val uploadLimit = prefs.getDailyUploadLimit(userPlan)
+        val uploadUsage = prefs.getDailyUploadUsage(cleanEmail)
+
         _uiState.value = _uiState.value.copy(
             isLoggedIn = true,
             isEmailVerified = verified,
             authMethod = method,
-            userEmail = email,
-            userName = if (name.isNotBlank()) name else prefs.userName
+            userEmail = cleanEmail,
+            userName = displayName,
+            currentPlan = userPlan,
+            dailyLimit = limit,
+            dailyUsage = usage,
+            dailyUploadLimit = uploadLimit,
+            dailyUploadUsage = uploadUsage,
+            currentConversationId = null,
+            messages = emptyList(),
+            currentStreamingResponse = ""
         )
     }
 
     fun signOut() {
+        cancelGeneration()
+        audioManager.stopPlayback()
+
+        prefs.hasExplicitlyLoggedIn = false
         prefs.isLoggedIn = false
         prefs.isEmailVerified = false
         prefs.authMethod = "Guest"
         prefs.userEmail = ""
+        prefs.userName = "Guest"
+        prefs.currentPlan = "Guest"
+        prefs.resetGuestUsage()
+
+        activeUserEmailFlow.value = ""
+
+        val guestLimit = prefs.getDailyLimit("Guest")
+        val guestUploadLimit = prefs.getDailyUploadLimit("Guest")
+
         _uiState.value = _uiState.value.copy(
             isLoggedIn = false,
             isEmailVerified = false,
             authMethod = "Guest",
             userEmail = "",
-            userName = "Guest"
+            userName = "Guest",
+            currentPlan = "Guest",
+            dailyLimit = guestLimit,
+            dailyUsage = 0,
+            dailyUploadLimit = guestUploadLimit,
+            dailyUploadUsage = 0,
+            currentConversationId = null,
+            messages = emptyList(),
+            currentStreamingResponse = ""
         )
     }
 
     fun upgradePlan(plan: String) {
         prefs.currentPlan = plan
+        if (_uiState.value.userEmail.isNotBlank()) {
+            prefs.setPlanForEmail(_uiState.value.userEmail, plan)
+        }
         val newLimit = prefs.getDailyLimit(plan)
         val newUploadLimit = prefs.getDailyUploadLimit(plan)
         _uiState.value = _uiState.value.copy(
@@ -291,13 +353,19 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkUploadQuota(): Boolean {
-        if (!prefs.canUpload(_uiState.value.currentPlan)) {
+        if (_uiState.value.currentPlan == "Guest" || !_uiState.value.isLoggedIn) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "File attachments and uploads are reserved for registered users. Please sign in or create an account.",
+                triggerLoginDialog = true
+            )
+            return false
+        }
+        val currentEmail = _uiState.value.userEmail
+        if (!prefs.canUpload(_uiState.value.currentPlan, currentEmail)) {
             val limit = prefs.getDailyUploadLimit(_uiState.value.currentPlan)
             val plan = _uiState.value.currentPlan
             val msg = if (plan == "Free") {
                 "Free upload limit reached ($limit/2 uploads used today). Upgrade to Plus or Pro for more uploads!"
-            } else if (plan == "Guest") {
-                "Uploads require an active plan. Sign in or upgrade to upload files."
             } else {
                 "$plan upload limit of $limit reached today. Upgrade to Pro for maximum uploads!"
             }
@@ -314,16 +382,29 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(triggerUpgradeDialog = false)
     }
 
+    fun clearTriggerLoginDialog() {
+        _uiState.value = _uiState.value.copy(triggerLoginDialog = false)
+    }
+
     fun clearErrorMessage() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
     private fun checkQuota(): Boolean {
-        val currentUsage = prefs.getDailyUsage()
+        val currentEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+        val currentUsage = prefs.getDailyUsage(currentEmail)
         val limit = prefs.getDailyLimit(_uiState.value.currentPlan)
         if (currentUsage >= limit) {
+            val isGuest = _uiState.value.currentPlan == "Guest" || !_uiState.value.isLoggedIn
+            val msg = if (isGuest) {
+                "Guest limit reached (4/4 messages). Please sign in or create a free account to continue chatting!"
+            } else {
+                "Daily limit of $limit messages reached. Upgrade your plan for more quota!"
+            }
             _uiState.value = _uiState.value.copy(
-                errorMessage = "Daily limit of $limit messages reached. Upgrade your plan for more quota!"
+                errorMessage = msg,
+                triggerLoginDialog = isGuest,
+                triggerUpgradeDialog = !isGuest
             )
             return false
         }
@@ -335,6 +416,59 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = userText.trim()
         if (trimmed.isEmpty() && attachment == null) return
         if (_uiState.value.isGenerating) return
+
+        val isGuest = _uiState.value.currentPlan == "Guest" || !_uiState.value.isLoggedIn
+        if (isGuest) {
+            val lower = trimmed.lowercase()
+            val isVideoRequest = lower.contains("video") ||
+                    lower.contains("animation") ||
+                    lower.contains("animate") ||
+                    lower.contains("movie") ||
+                    lower.contains("clip")
+            if (isVideoRequest) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Guest users cannot create videos. Please sign in or create an account to unlock video creations!",
+                    triggerLoginDialog = true
+                )
+                return
+            }
+        }
+
+        // Image Generation Command / Intent Detection
+        val lowerText = trimmed.lowercase()
+        val isExplicitImageCmd = lowerText.startsWith("/image ") ||
+                lowerText.startsWith("/imagine ") ||
+                lowerText.startsWith("/draw ") ||
+                lowerText.startsWith("/img ")
+        val isImageIntent = lowerText.startsWith("generate image of ") ||
+                lowerText.startsWith("generate image ") ||
+                lowerText.startsWith("create image of ") ||
+                lowerText.startsWith("create image ") ||
+                lowerText.startsWith("draw an image of ") ||
+                lowerText.startsWith("draw a picture of ") ||
+                lowerText.contains("छबि बानाय") ||
+                lowerText.contains("बानाय छबि")
+
+        if ((isExplicitImageCmd || isImageIntent) && attachment == null) {
+            val imagePrompt = when {
+                lowerText.startsWith("/image ") -> trimmed.substring(7)
+                lowerText.startsWith("/imagine ") -> trimmed.substring(9)
+                lowerText.startsWith("/draw ") -> trimmed.substring(6)
+                lowerText.startsWith("/img ") -> trimmed.substring(5)
+                lowerText.startsWith("generate image of ") -> trimmed.substring(18)
+                lowerText.startsWith("generate image ") -> trimmed.substring(15)
+                lowerText.startsWith("create image of ") -> trimmed.substring(16)
+                lowerText.startsWith("create image ") -> trimmed.substring(13)
+                lowerText.startsWith("draw an image of ") -> trimmed.substring(17)
+                lowerText.startsWith("draw a picture of ") -> trimmed.substring(18)
+                else -> trimmed
+            }.trim()
+
+            if (imagePrompt.isNotEmpty()) {
+                generateImage(imagePrompt)
+                return
+            }
+        }
 
         if (!checkQuota()) return
 
@@ -378,6 +512,114 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
             attachmentPayload = attachment,
             liveMode = false
         )
+    }
+
+    fun generateImage(prompt: String) {
+        val trimmed = prompt.trim()
+        if (trimmed.isEmpty()) return
+        if (_uiState.value.isGenerating) return
+
+        if (!checkQuota()) return
+
+        val userMessage = ChatMessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = _uiState.value.currentConversationId ?: "",
+            role = "user",
+            text = "🎨 /image $trimmed",
+            timestamp = System.currentTimeMillis()
+        )
+
+        val updatedMessages = _uiState.value.messages + userMessage
+        _uiState.value = _uiState.value.copy(
+            messages = updatedMessages,
+            isGenerating = true,
+            isThinking = true,
+            currentStreamingResponse = "Generating artwork with Orki AI worker…"
+        )
+
+        viewModelScope.launch {
+            val result = imageService.generateImage(
+                prompt = trimmed,
+                workerUrl = prefs.imageWorkerUrl,
+                apiKey = prefs.imageApiKey
+            )
+
+            result.onSuccess { imageFile ->
+                val assistantMessage = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    conversationId = _uiState.value.currentConversationId ?: "",
+                    role = "model",
+                    text = "Here is your generated image for: \"$trimmed\"",
+                    attachmentName = imageFile.name,
+                    attachmentType = "generated_image",
+                    attachmentSize = imageFile.length(),
+                    attachmentUri = imageFile.absolutePath,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                val finalizedMessages = _uiState.value.messages + assistantMessage
+                val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+                val newUsage = prefs.incrementDailyUsage(activeEmail)
+
+                _uiState.value = _uiState.value.copy(
+                    messages = finalizedMessages,
+                    isGenerating = false,
+                    isThinking = false,
+                    currentStreamingResponse = "",
+                    dailyUsage = newUsage
+                )
+
+                persistThread(finalizedMessages)
+            }.onFailure { error ->
+                val assistantError = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    conversationId = _uiState.value.currentConversationId ?: "",
+                    role = "model",
+                    text = "⚠️ Image generation failed: ${error.localizedMessage ?: "Unknown error"}. Please check your worker or try another prompt.",
+                    timestamp = System.currentTimeMillis()
+                )
+                val finalizedMessages = _uiState.value.messages + assistantError
+                _uiState.value = _uiState.value.copy(
+                    messages = finalizedMessages,
+                    isGenerating = false,
+                    isThinking = false,
+                    currentStreamingResponse = "",
+                    errorMessage = "Image generation failed: ${error.localizedMessage}"
+                )
+                persistThread(finalizedMessages)
+            }
+        }
+    }
+
+    fun sendGeneratedImageToChat(prompt: String, imageFile: File) {
+        val userMessage = ChatMessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = _uiState.value.currentConversationId ?: "",
+            role = "user",
+            text = "🎨 /image $prompt",
+            timestamp = System.currentTimeMillis()
+        )
+        val assistantMessage = ChatMessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = _uiState.value.currentConversationId ?: "",
+            role = "model",
+            text = "Here is your generated image for: \"$prompt\"",
+            attachmentName = imageFile.name,
+            attachmentType = "generated_image",
+            attachmentSize = imageFile.length(),
+            attachmentUri = imageFile.absolutePath,
+            timestamp = System.currentTimeMillis()
+        )
+        val updated = _uiState.value.messages + userMessage + assistantMessage
+        val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+        val newUsage = prefs.incrementDailyUsage(activeEmail)
+        _uiState.value = _uiState.value.copy(
+            messages = updated,
+            dailyUsage = newUsage
+        )
+        viewModelScope.launch {
+            persistThread(updated)
+        }
     }
 
     fun startVoiceRecording(liveMode: Boolean = false) {
@@ -601,8 +843,9 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 finalizedMessages.add(modelMessage)
 
-                val newUsage = prefs.incrementDailyUsage()
-                val newUploadUsage = if (attachmentPayload != null) prefs.incrementDailyUploadUsage() else prefs.getDailyUploadUsage()
+                val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+                val newUsage = prefs.incrementDailyUsage(activeEmail)
+                val newUploadUsage = if (attachmentPayload != null) prefs.incrementDailyUploadUsage(activeEmail) else prefs.getDailyUploadUsage(activeEmail)
                 _uiState.value = _uiState.value.copy(
                     messages = finalizedMessages,
                     isGenerating = false,
@@ -635,17 +878,28 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun persistThread(messages: List<ChatMessageEntity>) {
         if (_uiState.value.isIncognito || messages.isEmpty()) return
 
+        val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail.ifBlank { "" } else ""
         var convId = _uiState.value.currentConversationId
         val firstUserText = messages.firstOrNull { it.role == "user" }?.text ?: "New Conversation"
         val title = if (firstUserText.length > 28) firstUserText.take(28) + "…" else firstUserText
 
         if (convId == null) {
             convId = UUID.randomUUID().toString()
-            val conv = ConversationEntity(id = convId, title = title, updatedAt = System.currentTimeMillis())
+            val conv = ConversationEntity(
+                id = convId,
+                title = title,
+                updatedAt = System.currentTimeMillis(),
+                userEmail = activeEmail
+            )
             dao.insertConversation(conv)
             _uiState.value = _uiState.value.copy(currentConversationId = convId)
         } else {
-            val conv = ConversationEntity(id = convId, title = title, updatedAt = System.currentTimeMillis())
+            val conv = ConversationEntity(
+                id = convId,
+                title = title,
+                updatedAt = System.currentTimeMillis(),
+                userEmail = activeEmail
+            )
             dao.insertConversation(conv)
         }
 

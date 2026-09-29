@@ -49,10 +49,12 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.ConversationEntity
 import com.example.ui.components.bounceClick
 import com.example.ui.theme.AmberPro
+import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkElevated
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
@@ -78,9 +80,9 @@ fun DrawerContent(
     dailyUploadUsage: Int = 0,
     dailyUploadLimit: Int = 2,
     isIncognito: Boolean,
-    isLoggedIn: Boolean = true,
-    userEmail: String = "devmightwin@gmail.com",
-    userName: String = "DevD",
+    isLoggedIn: Boolean = false,
+    userEmail: String = "",
+    userName: String = "Guest",
     conversations: List<ConversationEntity>,
     selectedConversationId: String?,
     onSelectConversation: (String) -> Unit,
@@ -115,18 +117,14 @@ fun DrawerContent(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFF064E3B), Color(0xFF042F24))
-                                )
-                            )
-                            .border(1.dp, EmeraldAccent.copy(alpha = 0.5f), CircleShape),
+                            .background(DarkSurfaceVariant)
+                            .border(1.dp, DarkSurfaceBorder, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
                             contentDescription = "Orki AI",
-                            tint = EmeraldAccent,
+                            tint = TextPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -161,13 +159,13 @@ fun DrawerContent(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // ChatGPT / Claude style prominent "+ New Chat" Action Pill
+            // ChatGPT / Claude style clean "+ New Chat" Action Row
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(DarkSurfaceVariant)
-                    .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                     .bounceClick(scaleDown = 0.98f, onClick = onNewChat)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
@@ -180,7 +178,7 @@ fun DrawerContent(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = GreenHighlight,
+                            tint = TextPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -196,8 +194,8 @@ fun DrawerContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isIncognito) PurpleIncognito.copy(alpha = 0.25f) else DarkSurface)
-                            .border(1.dp, if (isIncognito) PurpleIncognito else GreenBorder, RoundedCornerShape(8.dp))
+                            .background(if (isIncognito) PurpleIncognito.copy(alpha = 0.25f) else DarkSurfaceElevated)
+                            .border(1.dp, if (isIncognito) PurpleIncognito else DarkBorderSubtle, RoundedCornerShape(8.dp))
                             .bounceClick(scaleDown = 0.95f, onClick = onToggleIncognito)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
@@ -249,7 +247,7 @@ fun DrawerContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Conversation Items List (Chatbot style)
+            // Conversation Items List - Simplified plain list rows without heavy pill borders (Requirement 5)
             if (isIncognito) {
                 Box(
                     modifier = Modifier
@@ -282,20 +280,15 @@ fun DrawerContent(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(conversations, key = { it.id }) { conv ->
                         val isSelected = conv.id == selectedConversationId
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) GreenSurfaceElevated else Color.Transparent)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) GreenBorderGlow else Color.Transparent,
-                                    RoundedCornerShape(10.dp)
-                                )
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) DarkSurfaceVariant else Color.Transparent)
                                 .bounceClick(scaleDown = 0.98f, onClick = { onSelectConversation(conv.id) })
                                 .padding(horizontal = 10.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -308,7 +301,7 @@ fun DrawerContent(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Chat,
                                     contentDescription = null,
-                                    tint = if (isSelected) GreenBright else GreenMuted,
+                                    tint = if (isSelected) GreenHighlight else TextMuted,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -316,6 +309,7 @@ fun DrawerContent(
                                     text = conv.title,
                                     color = if (isSelected) TextPrimary else TextSecondary,
                                     fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -365,14 +359,14 @@ fun DrawerContent(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(if (currentPlan == "Pro") AmberPro.copy(alpha = 0.2f) else EmeraldPrimary.copy(alpha = 0.2f))
+                                    .background(if (currentPlan == "Pro") AmberPro.copy(alpha = 0.2f) else DarkSurfaceElevated)
                                     .padding(horizontal = 5.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = currentPlan,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (currentPlan == "Pro") AmberPro else EmeraldAccent
+                                    color = if (currentPlan == "Pro") AmberPro else TextSecondary
                                 )
                             }
                         }
@@ -511,25 +505,21 @@ fun DrawerContent(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(EmeraldPrimary, EmeraldAccent)
-                                        )
-                                    ),
+                                    .background(DarkSurfaceElevated),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = (userName.takeIf { it.isNotBlank() } ?: userEmail)
                                         .take(1).uppercase(),
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.Black,
+                                    color = TextPrimary,
                                     fontSize = 13.sp
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = userName.ifBlank { "DevD" },
+                                    text = userName.ifBlank { "User" },
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary,
@@ -537,7 +527,7 @@ fun DrawerContent(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = userEmail.ifBlank { "devmightwin@gmail.com" },
+                                    text = userEmail,
                                     fontSize = 10.sp,
                                     color = TextMuted,
                                     maxLines = 1,

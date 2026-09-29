@@ -151,6 +151,7 @@ fun MainChatScreen(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showUpgradeDialog by remember { mutableStateOf(false) }
     var showLoginDialog by remember { mutableStateOf(false) }
+    var isImageGenMode by remember { mutableStateOf(false) }
     var showModelDropdown by remember { mutableStateOf(false) }
     var showAttachMenu by remember { mutableStateOf(false) }
 
@@ -161,6 +162,14 @@ fun MainChatScreen(
         if (uiState.triggerUpgradeDialog) {
             showUpgradeDialog = true
             viewModel.clearTriggerUpgradeDialog()
+        }
+    }
+
+    // Trigger login dialog if guest restriction or login required
+    LaunchedEffect(uiState.triggerLoginDialog) {
+        if (uiState.triggerLoginDialog) {
+            showLoginDialog = true
+            viewModel.clearTriggerLoginDialog()
         }
     }
 
@@ -311,7 +320,7 @@ fun MainChatScreen(
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(DarkSurfaceVariant)
-                            .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                             .bounceClick()
                     ) {
                         Icon(
@@ -327,8 +336,8 @@ fun MainChatScreen(
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(DarkSurface)
-                                .border(1.dp, GreenBorder, RoundedCornerShape(20.dp))
+                                .background(DarkSurfaceVariant)
+                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(20.dp))
                                 .bounceClick { showModelDropdown = true }
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -350,7 +359,7 @@ fun MainChatScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Switch Model",
-                                tint = GreenMuted,
+                                tint = TextMuted,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -360,12 +369,12 @@ fun MainChatScreen(
                             onDismissRequest = { showModelDropdown = false },
                             modifier = Modifier
                                 .background(DarkSurfaceElevated)
-                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                         ) {
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text("Orki 3.0", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = GreenHighlight)
+                                        Text("Orki 3.0", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = TextPrimary)
                                         Text("Ultra-fast conversational Bodo model", fontSize = 11.sp, color = TextMuted)
                                     }
                                 },
@@ -432,13 +441,13 @@ fun MainChatScreen(
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(DarkSurfaceVariant)
-                                .border(1.dp, GreenBorder, RoundedCornerShape(12.dp))
+                                .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(12.dp))
                                 .bounceClick()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "New Chat",
-                                tint = GreenHighlight,
+                                tint = TextPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -462,8 +471,8 @@ fun MainChatScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 8.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(GreenSurfaceTint)
-                                    .border(1.dp, GreenBorder, RoundedCornerShape(14.dp))
+                                    .background(DarkSurfaceVariant)
+                                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(14.dp))
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -478,7 +487,7 @@ fun MainChatScreen(
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(
                                                 when (file.fileType) {
-                                                    "image" -> GreenBright.copy(alpha = 0.2f)
+                                                    "image" -> Color(0x2210B981)
                                                     "pdf" -> Color(0x33EF4444)
                                                     else -> Color(0x3338BDF8)
                                                 }
@@ -513,7 +522,7 @@ fun MainChatScreen(
                                         Text(
                                             text = "${file.formattedSize} • Ready to send",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = GreenHighlight
+                                            color = TextSecondary
                                         )
                                     }
                                 }
@@ -532,12 +541,74 @@ fun MainChatScreen(
                         }
                     }
 
+                    // Removable AI Image Gen Mode Card (Just like uploaded file card)
+                    AnimatedVisibility(visible = isImageGenMode) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(DarkSurfaceVariant)
+                                .border(1.dp, GreenBorder, RoundedCornerShape(14.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0x2210B981)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = GreenHighlight,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "AI Image Generation",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Orki AI Worker • Type your prompt below",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = GreenTextMuted
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { isImageGenMode = false },
+                                modifier = Modifier.size(24.dp).bounceClick()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove Image Gen",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(26.dp))
                             .background(DarkSurfaceVariant)
-                            .border(1.dp, GreenBorder, RoundedCornerShape(26.dp))
+                            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(26.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(
@@ -547,30 +618,26 @@ fun MainChatScreen(
                             // Attach File '+' Button
                             IconButton(
                                 onClick = {
-                                    if (!viewModel.checkUploadQuota()) {
-                                        showUpgradeDialog = true
-                                    } else {
-                                        showAttachMenu = true
-                                    }
+                                    showAttachMenu = true
                                 },
                                 modifier = Modifier
                                     .testTag("attach_button")
                                     .size(38.dp)
                                     .clip(CircleShape)
-                                    .background(if (uiState.attachedFile != null) GreenBright.copy(alpha = 0.2f) else DarkSurface)
+                                    .background(if (uiState.attachedFile != null || isImageGenMode) DarkSurfaceElevated else DarkSurface)
                                     .bounceClick()
                             ) {
                                 if (uiState.isProcessingFile) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp,
-                                        color = GreenHighlight
+                                        color = TextPrimary
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = "Attach File",
-                                        tint = if (uiState.attachedFile != null) GreenHighlight else TextSecondary,
+                                        tint = if (isImageGenMode) GreenHighlight else TextSecondary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -582,9 +649,13 @@ fun MainChatScreen(
                                 onValueChange = { inputText = it },
                                 placeholder = {
                                     Text(
-                                        text = if (uiState.attachedFile != null) "Ask about this file or send…" else strings.inputPlaceholder,
+                                        text = when {
+                                            isImageGenMode -> "Describe the image to generate…"
+                                            uiState.attachedFile != null -> "Ask about this file or send…"
+                                            else -> strings.inputPlaceholder
+                                        },
                                         fontSize = 14.sp,
-                                        color = TextMuted
+                                        color = if (isImageGenMode) GreenHighlight.copy(alpha = 0.7f) else TextMuted
                                     )
                                 },
                                 maxLines = 5,
@@ -606,12 +677,12 @@ fun MainChatScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                // Live Mode Wave Pill Button
+                                // Live Mode Wave Pill Button - Clean neutral secondary action (Requirement 6)
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(16.dp))
-                                        .background(GreenSurfaceElevated)
-                                        .border(1.dp, GreenBorder, RoundedCornerShape(16.dp))
+                                        .background(DarkSurfaceElevated)
+                                        .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
                                         .bounceClick { requestMicAndExecute(liveMode = true) }
                                         .padding(horizontal = 10.dp, vertical = 6.dp)
                                         .testTag("live_talk_button"),
@@ -621,13 +692,13 @@ fun MainChatScreen(
                                         Icon(
                                             imageVector = Icons.Default.GraphicEq,
                                             contentDescription = "Live Talk",
-                                            tint = GreenHighlight,
+                                            tint = TextSecondary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = "Live",
-                                            color = GreenHighlight,
+                                            color = TextSecondary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -652,7 +723,7 @@ fun MainChatScreen(
                                     )
                                 }
 
-                                // Send or Stop Button
+                                // Send or Stop Button - Solid Green Fill reserved for Primary CTA (Requirement 1 & 6)
                                 val canSend = inputText.isNotBlank() || uiState.attachedFile != null
                                 IconButton(
                                     onClick = {
@@ -660,8 +731,14 @@ fun MainChatScreen(
                                         if (uiState.isGenerating) {
                                             viewModel.cancelGeneration()
                                         } else if (canSend) {
-                                            viewModel.sendMessage(inputText)
-                                            inputText = ""
+                                            if (isImageGenMode) {
+                                                viewModel.generateImage(inputText.trim())
+                                                inputText = ""
+                                                isImageGenMode = false
+                                            } else {
+                                                viewModel.sendMessage(inputText)
+                                                inputText = ""
+                                            }
                                         }
                                     },
                                     modifier = Modifier
@@ -670,15 +747,15 @@ fun MainChatScreen(
                                         .clip(CircleShape)
                                         .background(
                                             if (uiState.isGenerating) Color(0xFFDC2626)
-                                             else if (canSend) GreenBright
-                                            else Color(0x2627272A)
+                                            else if (canSend) GreenBright
+                                            else DarkSurfaceElevated
                                         )
                                         .bounceClick()
                                 ) {
                                     Icon(
                                         imageVector = if (uiState.isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                                         contentDescription = if (uiState.isGenerating) "Stop" else "Send",
-                                        tint = if (canSend || uiState.isGenerating) Color.White else TextMuted,
+                                        tint = if (canSend) Color.Black else if (uiState.isGenerating) Color.White else TextMuted,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -713,34 +790,26 @@ fun MainChatScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // Glowing AI Sparkle Emblem with signature emerald tint
+                        // AI Sparkle Emblem with neutral dark surface and subtle border
                         Box(
                             modifier = Modifier
-                                .size(72.dp)
+                                .size(64.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(
-                                            GreenBright.copy(alpha = 0.35f),
-                                            GreenSurfaceTint,
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                                .border(1.5.dp, GreenHighlight.copy(alpha = 0.6f), CircleShape),
+                                .background(DarkSurfaceVariant)
+                                .border(1.dp, DarkSurfaceBorder, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = "Orki AI",
-                                tint = GreenHighlight,
-                                modifier = Modifier.size(34.dp)
+                                tint = TextPrimary,
+                                modifier = Modifier.size(28.dp)
                             )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Bold larger headline for greeting (Requirement 3)
+                        // Bold larger headline for greeting
                         Text(
                             text = strings.welcomeTitle,
                             style = MaterialTheme.typography.headlineMedium,
@@ -751,11 +820,11 @@ fun MainChatScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Medium subtitle (Requirement 3)
+                        // Subtitle in neutral secondary gray (Requirement 2)
                         Text(
                             text = strings.welcomeSub,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = GreenTextMuted,
+                            color = TextSecondary,
                             textAlign = TextAlign.Center
                         )
 
@@ -933,8 +1002,8 @@ fun MainChatScreen(
     // Sign In / Login Dialog
     if (showLoginDialog) {
         LoginDialog(
-            suggestedEmail = if (uiState.userEmail.isNotBlank()) uiState.userEmail else "devmightwin@gmail.com",
-            suggestedName = if (uiState.userName.isNotBlank() && uiState.userName != "Guest") uiState.userName else "DevD",
+            suggestedEmail = if (uiState.userEmail.isNotBlank()) uiState.userEmail else "",
+            suggestedName = if (uiState.userName.isNotBlank() && uiState.userName != "Guest") uiState.userName else "",
             onDismiss = { showLoginDialog = false },
             onSignIn = { email, name, method ->
                 viewModel.signIn(email, name, method = method, verified = true)
@@ -945,22 +1014,44 @@ fun MainChatScreen(
         )
     }
 
-    // Attachment Picker Dialog (Image, PDF, TXT)
+    // Attachment Picker Dialog (Image, PDF, TXT, AI Image Gen, AI Video)
     if (showAttachMenu) {
         AttachmentPickerDialog(
             currentPlan = uiState.currentPlan,
             dailyUploadUsage = uiState.dailyUploadUsage,
             dailyUploadLimit = uiState.dailyUploadLimit,
             onSelectImage = {
-                imagePickerLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+                if (viewModel.checkUploadQuota()) {
+                    imagePickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
             },
             onSelectPdf = {
-                docPickerLauncher.launch(arrayOf("application/pdf"))
+                if (viewModel.checkUploadQuota()) {
+                    docPickerLauncher.launch(arrayOf("application/pdf"))
+                }
             },
             onSelectText = {
-                docPickerLauncher.launch(arrayOf("text/plain", "text/*"))
+                if (viewModel.checkUploadQuota()) {
+                    docPickerLauncher.launch(arrayOf("text/plain", "text/*"))
+                }
+            },
+            onOpenImageGenerator = {
+                isImageGenMode = true
+            },
+            onVideoCreationClick = {
+                val isGuest = uiState.currentPlan == "Guest" || !uiState.isLoggedIn
+                if (isGuest) {
+                    showLoginDialog = true
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Guests cannot create videos. Sign in or create an account to unlock video creations!")
+                    }
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("AI Video generation is in development for Pro members.")
+                    }
+                }
             },
             onDismiss = { showAttachMenu = false },
             onUpgradeClick = { showUpgradeDialog = true }
@@ -986,50 +1077,34 @@ private fun CustomSuggestionCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        GreenSurfaceElevated,
-                        GreenSurfaceTint
-                    )
-                )
-            )
-            .border(
-                1.dp,
-                Brush.horizontalGradient(
-                    listOf(
-                        GreenBorderGlow,
-                        GreenBorder
-                    )
-                ),
-                RoundedCornerShape(18.dp)
-            )
-            .bounceClick(scaleDown = 0.97f, onClick = onClick)
+            .clip(RoundedCornerShape(16.dp))
+            .background(DarkSurfaceVariant)
+            .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
+            .bounceClick(scaleDown = 0.98f, onClick = onClick)
             .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon on the left in subtle glowing circle
+            // Icon on the left in clean neutral circular container
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(GreenBright.copy(alpha = 0.15f))
-                    .border(1.dp, GreenHighlight.copy(alpha = 0.35f), CircleShape),
+                    .background(DarkSurfaceElevated)
+                    .border(1.dp, DarkBorderSubtle, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = GreenHighlight,
-                    modifier = Modifier.size(20.dp)
+                    tint = TextPrimary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1038,20 +1113,20 @@ private fun CustomSuggestionCard(
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = GreenTextMuted
+                    color = TextMuted
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = GreenHighlight.copy(alpha = 0.8f),
+                tint = TextMuted,
                 modifier = Modifier.size(16.dp)
             )
         }

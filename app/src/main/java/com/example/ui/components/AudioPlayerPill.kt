@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.audio.AudioPlayerState
 import com.example.ui.theme.DarkCanvas
+import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
+import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.TextMuted
@@ -85,8 +87,8 @@ fun AudioPlayerPill(
                     .fillMaxWidth()
                     .shadow(12.dp, RoundedCornerShape(20.dp), spotColor = Color(0x66000000))
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xF0121513))
-                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                    .background(DarkSurface)
+                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(20.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 // Play / Pause / Buffering Circle Button
@@ -141,7 +143,7 @@ fun AudioPlayerPill(
                             Icon(
                                 imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                tint = EmeraldAccent,
+                                tint = TextSecondary,
                                 modifier = Modifier.size(11.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -149,7 +151,7 @@ fun AudioPlayerPill(
                                 text = "Orki Voice",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = EmeraldAccent
+                                color = TextSecondary
                             )
                         }
 
@@ -249,7 +251,7 @@ private fun SleekAudioScrubberBar(
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color(0xFF272D29))
+                .background(DarkSurfaceElevated)
         )
 
         // Active Track with Glowing Emerald Gradient

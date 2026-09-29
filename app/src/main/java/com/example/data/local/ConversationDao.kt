@@ -11,6 +11,9 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations ORDER BY updatedAt DESC")
     fun getAllConversations(): Flow<List<ConversationEntity>>
 
+    @Query("SELECT * FROM conversations WHERE userEmail = :userEmail ORDER BY updatedAt DESC")
+    fun getConversationsForUser(userEmail: String): Flow<List<ConversationEntity>>
+
     @Query("SELECT * FROM chat_messages WHERE conversationId = :conversationId ORDER BY timestamp ASC")
     fun getMessagesForConversation(conversationId: String): Flow<List<ChatMessageEntity>>
 
