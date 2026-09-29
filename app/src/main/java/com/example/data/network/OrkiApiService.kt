@@ -233,4 +233,91 @@ class OrkiApiService {
             })
         } catch (_: Exception) {}
     }
+
+    /**
+     * Gemini Middleman Prompt Enhancer:
+     * Transforms basic or ambiguous prompts into rich, visually descriptive, culturally accurate prompts.
+     * Prevents image/video models from hallucinating on cultural attire (e.g. Dokhona, Aronai, Fasra)
+     * and adds cinematic lighting, camera perspective, textures, and framing.
+     */
+    suspend fun enhanceVisualPrompt(rawPrompt: String, isVideo: Boolean): String = withContext(Dispatchers.IO) {
+        val trimmed = rawPrompt.trim()
+        if (trimmed.isEmpty()) return@withContext trimmed
+
+        try {
+            val systemInstruction = if (isVideo) {
+                "You are an expert AI video prompt engineer. Enhance the user's video prompt into a rich, photorealistic, cinematic visual description for an 8-second video. If cultural items (such as Bodo traditional attire like dokhona, aronai, fasra, cultural festivals like Bwisagu, or Northeast India scenery) are mentioned, accurately describe their authentic visual details, fabrics, traditional patterns, and colors so the video generator does not hallucinate. Specify camera motion (smooth cinematic pan/zoom, 4k detail, atmospheric lighting). Keep it concise, descriptive, and under 60 words. Return ONLY the enhanced prompt text, no quotes or preamble."
+            } else {
+                "You are an expert AI image prompt engineer. Enhance the user's image prompt into a rich, photorealistic, visually precise description. If cultural items (such as Bodo traditional attire like dokhona, aronai, fasra, cultural festivals like Bwisagu, or Northeast India scenery) are mentioned, accurately describe their authentic visual details, fabrics, traditional motifs (Agor), and vibrant colors so the diffusion model does not hallucinate. Include camera lighting, framing, 8k resolution, photorealistic masterpiece details. Keep it concise, descriptive, and under 60 words. Return ONLY the enhanced prompt text, no quotes or preamble."
+            }
+
+            val contents = JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("text", "$systemInstruction\n\nUser request: \"$trimmed\"\n\nEnhanced prompt:")
+                        })
+                    })
+                })
+            }
+
+            val payload = JSONObject().apply {
+                put("plan", "Pro")
+                put("model", "gemini-2.0-flash")
+                put("script", "Latin")
+                put("userPersona", "")
+                put("contents", contents)
+                put("isLiveMode", false)
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.3)
+                    put("maxOutputTokens", 180)
+                })
+            }
+
+            val request = Request.Builder()
+                .url(STREAM_API_URL)
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return@withContext trimmed
+
+            val body = response.body ?: return@withContext trimmed
+            val reader = BufferedReader(InputStreamReader(body.byteStream()))
+            val enhancedBuilder = StringBuilder()
+
+            var line: String? = reader.readLine()
+            while (line != null) {
+                val lineTrimmed = line.trim()
+                if (lineTrimmed.startsWith("data: ")) {
+                    val jsonStr = lineTrimmed.substring(6).trim()
+                    if (jsonStr.isNotEmpty()) {
+                        try {
+                            val parsed = JSONObject(jsonStr)
+                            val candidates = parsed.optJSONArray("candidates")
+                            if (candidates != null && candidates.length() > 0) {
+                                val content = candidates.getJSONObject(0).optJSONObject("content")
+                                val parts = content?.optJSONArray("parts")
+                                if (parts != null && parts.length() > 0) {
+                                    val chunk = parts.getJSONObject(0).optString("text", "")
+                                    enhancedBuilder.append(chunk)
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+                line = reader.readLine()
+            }
+
+            val finalEnhanced = enhancedBuilder.toString()
+                .replace(Regex("^(Enhanced prompt|Prompt):?\\s*", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("^\"|\"$"), "")
+                .trim()
+
+            if (finalEnhanced.isNotBlank()) finalEnhanced else trimmed
+        } catch (e: Exception) {
+            trimmed
+        }
+    }
 }

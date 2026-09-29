@@ -425,6 +425,78 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
+    data class VisualIntent(val type: String, val prompt: String)
+
+    private fun extractVisualIntent(rawText: String): VisualIntent? {
+        val t = rawText.trim()
+        if (t.isEmpty()) return null
+        val lower = t.lowercase()
+
+        // 1. Explicit Slash Commands
+        val slashVideoRegex = Regex("^/(video|vid|clip)\\s+(.+)$", RegexOption.IGNORE_CASE)
+        val slashVideoMatch = slashVideoRegex.find(t)
+        if (slashVideoMatch != null) {
+            return VisualIntent("video", slashVideoMatch.groupValues[2].trim())
+        }
+
+        val slashImageRegex = Regex("^/(image|imagine|draw|img)\\s+(.+)$", RegexOption.IGNORE_CASE)
+        val slashImageMatch = slashImageRegex.find(t)
+        if (slashImageMatch != null) {
+            return VisualIntent("image", slashImageMatch.groupValues[2].trim())
+        }
+
+        // 2. Natural Video Request Intents (Handles 'can you create a video of', 'make a video', typos like 'vedio', etc.)
+        val videoPattern = Regex(
+            "^(?:hey\\s+orki\\s*,?\\s*|can\\s+you\\s+(?:please\\s+)?|could\\s+you\\s+(?:please\\s+)?|please\\s+|i\\s+want\\s+(?:you\\s+to\\s+|a\\s+)?|make\\s+me\\s+a\\s+|give\\s+me\\s+a\\s+|show\\s+me\\s+a\\s+)?(?:generate|create|ceeate|make|render|produce|show|give)?\\s*(?:an?\\s+)?(?:ai\\s+)?(?:video|clip|movie|animation|vedio|vidoe)\\s*(?:of|about|showing|with|for|depicting)?\\s*(.+)$",
+            RegexOption.IGNORE_CASE
+        )
+        val videoMatch = videoPattern.find(t)
+        if (videoMatch != null && videoMatch.groupValues[1].isNotBlank()) {
+            val candidate = videoMatch.groupValues[1].trim()
+            if (candidate.length >= 2) {
+                return VisualIntent("video", candidate)
+            }
+        }
+
+        // 3. Natural Image Request Intents (Handles 'create a inage of', 'draw me a', 'picture of', etc.)
+        val imagePattern = Regex(
+            "^(?:hey\\s+orki\\s*,?\\s*|can\\s+you\\s+(?:please\\s+)?|could\\s+you\\s+(?:please\\s+)?|please\\s+|i\\s+want\\s+(?:you\\s+to\\s+|a\\s+)?|make\\s+me\\s+a\\s+|give\\s+me\\s+a\\s+|show\\s+me\\s+a\\s+)?(?:generate|create|ceeate|make|render|produce|draw|paint|illustrate|show|give)?\\s*(?:an?\\s+)?(?:ai\\s+)?(?:image|inage|picture|piture|photo|artwork|drawing|illustration|painting|wallpaper)\\s*(?:of|about|showing|with|for|depicting)?\\s*(.+)$",
+            RegexOption.IGNORE_CASE
+        )
+        val imageMatch = imagePattern.find(t)
+        if (imageMatch != null && imageMatch.groupValues[1].isNotBlank()) {
+            val candidate = imageMatch.groupValues[1].trim()
+            if (candidate.length >= 2) {
+                return VisualIntent("image", candidate)
+            }
+        }
+
+        // 4. Drawing Commands (e.g. 'draw a cat', 'draw me a girl in dokhona')
+        val drawPattern = Regex(
+            "^(?:can\\s+you\\s+(?:please\\s+)?|could\\s+you\\s+(?:please\\s+)?|please\\s+)?(?:draw|paint|illustrate)\\s*(?:me\\s+)?(?:an?\\s+)?(.+)$",
+            RegexOption.IGNORE_CASE
+        )
+        val drawMatch = drawPattern.find(t)
+        if (drawMatch != null && drawMatch.groupValues[1].isNotBlank()) {
+            val candidate = drawMatch.groupValues[1].trim()
+            if (candidate.length >= 2) {
+                return VisualIntent("image", candidate)
+            }
+        }
+
+        // 5. Bodo Language Triggers
+        if (lower.contains("भिदिअ बानाय") || lower.contains("बानाय भिदिअ")) {
+            val clean = t.replace(Regex("भिदिअ|बानाय"), "").trim()
+            if (clean.isNotEmpty()) return VisualIntent("video", clean)
+        }
+        if (lower.contains("छबि बानाय") || lower.contains("बानाय छबि")) {
+            val clean = t.replace(Regex("छबि|बानाय"), "").trim()
+            if (clean.isNotEmpty()) return VisualIntent("image", clean)
+        }
+
+        return null
+    }
+
     fun sendMessage(userText: String) {
         val attachment = _uiState.value.attachedFile
         val trimmed = userText.trim()
@@ -448,68 +520,14 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Image Generation Command / Intent Detection
-        val lowerText = trimmed.lowercase()
-        val isExplicitVideoCmd = lowerText.startsWith("/video ") ||
-                lowerText.startsWith("/vid ") ||
-                lowerText.startsWith("/clip ")
-        val isVideoIntent = lowerText.startsWith("generate video of ") ||
-                lowerText.startsWith("generate video ") ||
-                lowerText.startsWith("create video of ") ||
-                lowerText.startsWith("create video ") ||
-                lowerText.startsWith("make a video of ") ||
-                lowerText.startsWith("make a video ")
-
-        if ((isExplicitVideoCmd || isVideoIntent) && attachment == null) {
-            val videoPrompt = when {
-                lowerText.startsWith("/video ") -> trimmed.substring(7)
-                lowerText.startsWith("/vid ") -> trimmed.substring(5)
-                lowerText.startsWith("/clip ") -> trimmed.substring(6)
-                lowerText.startsWith("generate video of ") -> trimmed.substring(19)
-                lowerText.startsWith("generate video ") -> trimmed.substring(15)
-                lowerText.startsWith("create video of ") -> trimmed.substring(16)
-                lowerText.startsWith("create video ") -> trimmed.substring(13)
-                lowerText.startsWith("make a video of ") -> trimmed.substring(16)
-                lowerText.startsWith("make a video ") -> trimmed.substring(13)
-                else -> trimmed
-            }.trim()
-
-            if (videoPrompt.isNotEmpty()) {
-                generateVideo(videoPrompt)
+        // Intelligent Visual Intent Detection (Natural language Image/Video requests + slash commands)
+        val visualIntent = extractVisualIntent(trimmed)
+        if (visualIntent != null && attachment == null) {
+            if (visualIntent.type == "video") {
+                generateVideo(visualIntent.prompt)
                 return
-            }
-        }
-
-        val isExplicitImageCmd = lowerText.startsWith("/image ") ||
-                lowerText.startsWith("/imagine ") ||
-                lowerText.startsWith("/draw ") ||
-                lowerText.startsWith("/img ")
-        val isImageIntent = lowerText.startsWith("generate image of ") ||
-                lowerText.startsWith("generate image ") ||
-                lowerText.startsWith("create image of ") ||
-                lowerText.startsWith("create image ") ||
-                lowerText.startsWith("draw an image of ") ||
-                lowerText.startsWith("draw a picture of ") ||
-                lowerText.contains("छबि बानाय") ||
-                lowerText.contains("बानाय छबि")
-
-        if ((isExplicitImageCmd || isImageIntent) && attachment == null) {
-            val imagePrompt = when {
-                lowerText.startsWith("/image ") -> trimmed.substring(7)
-                lowerText.startsWith("/imagine ") -> trimmed.substring(9)
-                lowerText.startsWith("/draw ") -> trimmed.substring(6)
-                lowerText.startsWith("/img ") -> trimmed.substring(5)
-                lowerText.startsWith("generate image of ") -> trimmed.substring(18)
-                lowerText.startsWith("generate image ") -> trimmed.substring(15)
-                lowerText.startsWith("create image of ") -> trimmed.substring(16)
-                lowerText.startsWith("create image ") -> trimmed.substring(13)
-                lowerText.startsWith("draw an image of ") -> trimmed.substring(17)
-                lowerText.startsWith("draw a picture of ") -> trimmed.substring(18)
-                else -> trimmed
-            }.trim()
-
-            if (imagePrompt.isNotEmpty()) {
-                generateImage(imagePrompt)
+            } else if (visualIntent.type == "image") {
+                generateImage(visualIntent.prompt)
                 return
             }
         }
@@ -586,17 +604,33 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         activeStreamJob = viewModelScope.launch {
+            // Step 1: Gemini AI Middleman - Enhance the prompt with authentic cultural & visual details
+            _uiState.value = _uiState.value.copy(
+                imageGenProgress = 12,
+                imageGenStage = "✨ Gemini AI: Enhancing prompt with cultural & visual details..."
+            )
+
+            val enhancedPrompt = try {
+                apiService.enhanceVisualPrompt(trimmed, isVideo = false)
+            } catch (_: Exception) {
+                trimmed
+            }
+
+            _uiState.value = _uiState.value.copy(
+                imageGenProgress = 25,
+                imageGenStage = "Connecting to Orki AI GPU Cluster..."
+            )
+
             // Live progressive ticker simulating real-time diffusion stages up to 96%
             val tickerJob = launch {
                 val milestones = listOf(
-                    15 to "Connecting & parsing prompt...",
-                    32 to "Encoding prompt into text latents...",
-                    52 to "Sampling diffusion steps (GPU Pass 1)...",
-                    72 to "Denoising & refining composition...",
-                    86 to "Enhancing details & color grading...",
+                    40 to "Encoding prompt into text latents...",
+                    60 to "Sampling diffusion steps (GPU Pass 1)...",
+                    78 to "Denoising & refining composition...",
+                    88 to "Enhancing details & color grading...",
                     94 to "Finalizing PNG artwork bytes..."
                 )
-                var currentPercent = 6
+                var currentPercent = 25
                 for ((targetPercent, stageText) in milestones) {
                     _uiState.value = _uiState.value.copy(imageGenStage = stageText)
                     while (currentPercent < targetPercent) {
@@ -615,7 +649,7 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
 
             try {
                 val result = imageService.generateImage(
-                    prompt = trimmed,
+                    prompt = enhancedPrompt,
                     workerUrl = prefs.imageWorkerUrl,
                     apiKey = prefs.imageApiKey,
                     pollinationsKey = prefs.pollinationsApiKey,
@@ -637,15 +671,25 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     delay(250)
 
+                    val responseText = if (enhancedPrompt.equals(trimmed, ignoreCase = true)) {
+                        if (generated.isFallback) {
+                            "Here is your generated image for: \"$trimmed\"\n*(Generated via Pollinations AI backup engine)*"
+                        } else {
+                            "Here is your generated image for: \"$trimmed\""
+                        }
+                    } else {
+                        if (generated.isFallback) {
+                            "Here is your generated image for: \"$trimmed\"\n\n✨ **Enhanced prompt used:**\n$enhancedPrompt\n\n*(Generated via Pollinations AI backup engine)*"
+                        } else {
+                            "Here is your generated image for: \"$trimmed\"\n\n✨ **Enhanced prompt used:**\n$enhancedPrompt"
+                        }
+                    }
+
                     val assistantMessage = ChatMessageEntity(
                         id = UUID.randomUUID().toString(),
                         conversationId = _uiState.value.currentConversationId ?: "",
                         role = "model",
-                        text = if (generated.isFallback) {
-                            "Here is your generated image for: \"$trimmed\"\n*(Generated via Pollinations AI backup engine)*"
-                        } else {
-                            "Here is your generated image for: \"$trimmed\""
-                        },
+                        text = responseText,
                         attachmentName = imageFile.name,
                         attachmentType = "generated_image",
                         attachmentSize = imageFile.length(),
@@ -759,8 +803,25 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
 
         activeStreamJob = viewModelScope.launch {
             try {
+                // Step 1: Gemini AI Middleman - Enhance video prompt with camera direction & cultural details
+                _uiState.value = _uiState.value.copy(
+                    videoGenProgress = 15,
+                    videoGenStage = "✨ Gemini AI: Enhancing video prompt & camera keyframes..."
+                )
+
+                val enhancedPrompt = try {
+                    apiService.enhanceVisualPrompt(trimmed, isVideo = true)
+                } catch (_: Exception) {
+                    trimmed
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    videoGenProgress = 25,
+                    videoGenStage = "Submitting scene & camera keyframes to Json2video..."
+                )
+
                 val result = videoService.generateVideo(
-                    prompt = trimmed,
+                    prompt = enhancedPrompt,
                     json2videoKey = prefs.json2videoApiKey,
                     bytezKey = prefs.bytezApiKey,
                     onStatusUpdate = { progress, stageText, isFallback ->
@@ -781,15 +842,25 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     delay(300)
 
+                    val responseText = if (enhancedPrompt.equals(trimmed, ignoreCase = true)) {
+                        if (generated.isFallback) {
+                            "Here is your 8s AI video for: \"$trimmed\"\n*(Generated via Backup Video engine)*"
+                        } else {
+                            "Here is your 8s AI video for: \"$trimmed\""
+                        }
+                    } else {
+                        if (generated.isFallback) {
+                            "Here is your 8s AI video for: \"$trimmed\"\n\n✨ **Enhanced prompt used:**\n$enhancedPrompt\n\n*(Generated via Backup Video engine)*"
+                        } else {
+                            "Here is your 8s AI video for: \"$trimmed\"\n\n✨ **Enhanced prompt used:**\n$enhancedPrompt"
+                        }
+                    }
+
                     val assistantMessage = ChatMessageEntity(
                         id = UUID.randomUUID().toString(),
                         conversationId = _uiState.value.currentConversationId ?: "",
                         role = "model",
-                        text = if (generated.isFallback) {
-                            "Here is your 8s AI video for: \"$trimmed\"\n*(Generated via Backup Video engine)*"
-                        } else {
-                            "Here is your 8s AI video for: \"$trimmed\""
-                        },
+                        text = responseText,
                         attachmentName = generated.thumbnailUrl ?: videoFile.name,
                         attachmentType = "generated_video",
                         attachmentSize = videoFile.length(),
