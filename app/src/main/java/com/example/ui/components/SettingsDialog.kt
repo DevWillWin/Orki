@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.preferences.VoiceOptions
 import com.example.ui.theme.AmberPro
+import com.example.ui.theme.AmberProLight
 import com.example.ui.theme.DarkBorderSubtle
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
@@ -66,6 +68,7 @@ import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GreenBright
+import com.example.ui.theme.GreenHighlight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
@@ -439,6 +442,136 @@ fun SettingsDialog(
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // SECTION 5: AI IMAGE GENERATION (DUAL ENGINE)
+                    SettingsSection(title = "AI IMAGE GENERATION (DUAL ENGINE)") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(DarkCanvas)
+                                    .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x2210B981)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = GreenHighlight,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Primary Engine: Cloudflare Workers AI", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = TextPrimary)
+                                    Text("Worker: orki-img-gen.devmightwin.workers.dev", fontSize = 10.sp, color = TextSecondary)
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(DarkCanvas)
+                                    .border(1.dp, AmberPro.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x22F59E0B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = null,
+                                        tint = AmberPro,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Auto-Fallback Engine: Pollinations.AI", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = TextPrimary)
+                                    Text("Active Fallback • Key: sk_hFio...JS7o", fontSize = 10.sp, color = AmberProLight)
+                                }
+                            }
+                        }
+                    }
+
+                    // SECTION 6: AI VIDEO GENERATION (JSON2VIDEO + BYTEZ FALLBACK)
+                    SettingsSection(title = "AI VIDEO GENERATION (DUAL ENGINE)") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(DarkCanvas)
+                                    .border(1.dp, Color(0x5506B6D4), RoundedCornerShape(10.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x2206B6D4)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color(0xFF06B6D4),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Primary Engine: Json2video AI Studio", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = TextPrimary)
+                                    Text("600s Quota (~60 videos) • 8s Cinematic MP4 • Key: I8It...q4w", fontSize = 10.sp, color = Color(0xFF67E8F9))
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(DarkCanvas)
+                                    .border(1.dp, AmberPro.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x22F59E0B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = null,
+                                        tint = AmberPro,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Backup Engine: Bytez / Pollinations Video", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = TextPrimary)
+                                    Text("1 Request at a time limit • Key: f55b...8b51", fontSize = 10.sp, color = AmberProLight)
                                 }
                             }
                         }

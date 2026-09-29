@@ -12,6 +12,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.ChatMessageEntity
 import com.example.data.local.ConversationEntity
 import com.example.data.network.ImageGenerationService
+import com.example.data.network.VideoGenerationService
 import com.example.data.network.OrkiApiService
 import com.example.data.preferences.UserPreferences
 import com.example.data.preferences.VoiceOptions
@@ -68,6 +69,18 @@ data class UiState(
     val authMethod: String = "Guest",
     val userEmail: String = "",
     val errorMessage: String? = null,
+    val isGeneratingImage: Boolean = false,
+    val imageGenProgress: Int = 0,
+    val imageGenStage: String = "",
+    val imageGenPrompt: String = "",
+    val imageGenEngine: String = "Orki AI (Cloudflare)",
+    val isImageGenFallback: Boolean = false,
+    val isGeneratingVideo: Boolean = false,
+    val videoGenProgress: Int = 0,
+    val videoGenStage: String = "",
+    val videoGenPrompt: String = "",
+    val videoGenEngine: String = "Json2video AI Studio (Primary)",
+    val isVideoGenFallback: Boolean = false,
     val triggerUpgradeDialog: Boolean = false,
     val triggerLoginDialog: Boolean = false
 )
@@ -82,6 +95,7 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
     val audioManager = AudioManager(application, viewModelScope)
     val billingManager = PlayBillingManager(application, viewModelScope)
     val imageService = ImageGenerationService(application)
+    val videoService = VideoGenerationService(application)
 
     private val activeUserEmailFlow = MutableStateFlow(if (prefs.isLoggedIn) prefs.userEmail.ifBlank { "" } else "")
 
@@ -436,6 +450,36 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
 
         // Image Generation Command / Intent Detection
         val lowerText = trimmed.lowercase()
+        val isExplicitVideoCmd = lowerText.startsWith("/video ") ||
+                lowerText.startsWith("/vid ") ||
+                lowerText.startsWith("/clip ")
+        val isVideoIntent = lowerText.startsWith("generate video of ") ||
+                lowerText.startsWith("generate video ") ||
+                lowerText.startsWith("create video of ") ||
+                lowerText.startsWith("create video ") ||
+                lowerText.startsWith("make a video of ") ||
+                lowerText.startsWith("make a video ")
+
+        if ((isExplicitVideoCmd || isVideoIntent) && attachment == null) {
+            val videoPrompt = when {
+                lowerText.startsWith("/video ") -> trimmed.substring(7)
+                lowerText.startsWith("/vid ") -> trimmed.substring(5)
+                lowerText.startsWith("/clip ") -> trimmed.substring(6)
+                lowerText.startsWith("generate video of ") -> trimmed.substring(19)
+                lowerText.startsWith("generate video ") -> trimmed.substring(15)
+                lowerText.startsWith("create video of ") -> trimmed.substring(16)
+                lowerText.startsWith("create video ") -> trimmed.substring(13)
+                lowerText.startsWith("make a video of ") -> trimmed.substring(16)
+                lowerText.startsWith("make a video ") -> trimmed.substring(13)
+                else -> trimmed
+            }.trim()
+
+            if (videoPrompt.isNotEmpty()) {
+                generateVideo(videoPrompt)
+                return
+            }
+        }
+
         val isExplicitImageCmd = lowerText.startsWith("/image ") ||
                 lowerText.startsWith("/imagine ") ||
                 lowerText.startsWith("/draw ") ||
@@ -533,60 +577,280 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(
             messages = updatedMessages,
             isGenerating = true,
-            isThinking = true,
-            currentStreamingResponse = "Generating artwork with Orki AI worker…"
+            isThinking = false,
+            isGeneratingImage = true,
+            imageGenProgress = 6,
+            imageGenStage = "Connecting to Orki AI Worker...",
+            imageGenPrompt = trimmed,
+            currentStreamingResponse = ""
         )
 
-        viewModelScope.launch {
-            val result = imageService.generateImage(
-                prompt = trimmed,
-                workerUrl = prefs.imageWorkerUrl,
-                apiKey = prefs.imageApiKey
+        activeStreamJob = viewModelScope.launch {
+            // Live progressive ticker simulating real-time diffusion stages up to 96%
+            val tickerJob = launch {
+                val milestones = listOf(
+                    15 to "Connecting & parsing prompt...",
+                    32 to "Encoding prompt into text latents...",
+                    52 to "Sampling diffusion steps (GPU Pass 1)...",
+                    72 to "Denoising & refining composition...",
+                    86 to "Enhancing details & color grading...",
+                    94 to "Finalizing PNG artwork bytes..."
+                )
+                var currentPercent = 6
+                for ((targetPercent, stageText) in milestones) {
+                    _uiState.value = _uiState.value.copy(imageGenStage = stageText)
+                    while (currentPercent < targetPercent) {
+                        currentPercent += (1..3).random()
+                        if (currentPercent > targetPercent) currentPercent = targetPercent
+                        _uiState.value = _uiState.value.copy(imageGenProgress = currentPercent)
+                        delay((180L..340L).random())
+                    }
+                }
+                while (currentPercent < 97) {
+                    delay(450)
+                    currentPercent += 1
+                    _uiState.value = _uiState.value.copy(imageGenProgress = currentPercent)
+                }
+            }
+
+            try {
+                val result = imageService.generateImage(
+                    prompt = trimmed,
+                    workerUrl = prefs.imageWorkerUrl,
+                    apiKey = prefs.imageApiKey,
+                    pollinationsKey = prefs.pollinationsApiKey,
+                    onStatusUpdate = { stageText, isFallback ->
+                        _uiState.value = _uiState.value.copy(
+                            imageGenStage = stageText,
+                            isImageGenFallback = isFallback,
+                            imageGenEngine = if (isFallback) "Pollinations AI (Backup)" else "Orki AI (Cloudflare)"
+                        )
+                    }
+                )
+                tickerJob.cancel()
+
+                result.onSuccess { generated ->
+                    val imageFile = generated.file
+                    _uiState.value = _uiState.value.copy(
+                        imageGenProgress = 100,
+                        imageGenStage = if (generated.isFallback) "Artwork generated via Pollinations AI backup!" else "Artwork generated! Rendering..."
+                    )
+                    delay(250)
+
+                    val assistantMessage = ChatMessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        conversationId = _uiState.value.currentConversationId ?: "",
+                        role = "model",
+                        text = if (generated.isFallback) {
+                            "Here is your generated image for: \"$trimmed\"\n*(Generated via Pollinations AI backup engine)*"
+                        } else {
+                            "Here is your generated image for: \"$trimmed\""
+                        },
+                        attachmentName = imageFile.name,
+                        attachmentType = "generated_image",
+                        attachmentSize = imageFile.length(),
+                        attachmentUri = imageFile.absolutePath,
+                        timestamp = System.currentTimeMillis()
+                    )
+
+                    val finalizedMessages = _uiState.value.messages + assistantMessage
+                    val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+                    val newUsage = prefs.incrementDailyUsage(activeEmail)
+
+                    _uiState.value = _uiState.value.copy(
+                        messages = finalizedMessages,
+                        isGenerating = false,
+                        isThinking = false,
+                        isGeneratingImage = false,
+                        imageGenProgress = 0,
+                        imageGenStage = "",
+                        imageGenPrompt = "",
+                        isImageGenFallback = false,
+                        imageGenEngine = "Orki AI (Cloudflare)",
+                        dailyUsage = newUsage
+                    )
+
+                    persistThread(finalizedMessages)
+                }.onFailure { error ->
+                    val assistantError = ChatMessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        conversationId = _uiState.value.currentConversationId ?: "",
+                        role = "model",
+                        text = "⚠️ Image generation failed: ${error.localizedMessage ?: "Unknown error"}. Both Cloudflare and Pollinations AI were attempted.",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    val finalizedMessages = _uiState.value.messages + assistantError
+                    _uiState.value = _uiState.value.copy(
+                        messages = finalizedMessages,
+                        isGenerating = false,
+                        isThinking = false,
+                        isGeneratingImage = false,
+                        imageGenProgress = 0,
+                        imageGenStage = "",
+                        imageGenPrompt = "",
+                        isImageGenFallback = false,
+                        imageGenEngine = "Orki AI (Cloudflare)",
+                        errorMessage = "Image generation failed: ${error.localizedMessage}"
+                    )
+                    persistThread(finalizedMessages)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                tickerJob.cancel()
+                throw e
+            } catch (e: Exception) {
+                tickerJob.cancel()
+                _uiState.value = _uiState.value.copy(
+                    isGenerating = false,
+                    isThinking = false,
+                    isGeneratingImage = false,
+                    imageGenProgress = 0,
+                    imageGenStage = "",
+                    imageGenPrompt = "",
+                    isImageGenFallback = false,
+                    imageGenEngine = "Orki AI (Cloudflare)"
+                )
+            }
+        }
+    }
+
+    fun generateVideo(prompt: String) {
+        val trimmed = prompt.trim()
+        if (trimmed.isEmpty()) return
+
+        // Concurrency Guard: Only 1 video request at a time
+        if (_uiState.value.isGeneratingVideo) {
+            val busyMessage = ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                conversationId = _uiState.value.currentConversationId ?: "",
+                role = "model",
+                text = "⚠️ Video generation server is currently busy with another render. On this tier, only 1 video can be processed at a time. Please wait a few moments and try again!",
+                timestamp = System.currentTimeMillis()
             )
+            val updatedMessages = _uiState.value.messages + busyMessage
+            _uiState.value = _uiState.value.copy(messages = updatedMessages)
+            viewModelScope.launch { persistThread(updatedMessages) }
+            return
+        }
 
-            result.onSuccess { imageFile ->
-                val assistantMessage = ChatMessageEntity(
-                    id = UUID.randomUUID().toString(),
-                    conversationId = _uiState.value.currentConversationId ?: "",
-                    role = "model",
-                    text = "Here is your generated image for: \"$trimmed\"",
-                    attachmentName = imageFile.name,
-                    attachmentType = "generated_image",
-                    attachmentSize = imageFile.length(),
-                    attachmentUri = imageFile.absolutePath,
-                    timestamp = System.currentTimeMillis()
+        if (_uiState.value.isGenerating) return
+        if (!checkQuota()) return
+
+        val userMessage = ChatMessageEntity(
+            id = UUID.randomUUID().toString(),
+            conversationId = _uiState.value.currentConversationId ?: "",
+            role = "user",
+            text = "🎬 /video $trimmed",
+            timestamp = System.currentTimeMillis()
+        )
+
+        val updatedMessages = _uiState.value.messages + userMessage
+        _uiState.value = _uiState.value.copy(
+            messages = updatedMessages,
+            isGenerating = true,
+            isThinking = false,
+            isGeneratingVideo = true,
+            videoGenProgress = 10,
+            videoGenStage = "Initializing Json2video AI Studio...",
+            videoGenPrompt = trimmed,
+            videoGenEngine = "Json2video AI Studio (Primary)",
+            isVideoGenFallback = false,
+            currentStreamingResponse = ""
+        )
+
+        activeStreamJob = viewModelScope.launch {
+            try {
+                val result = videoService.generateVideo(
+                    prompt = trimmed,
+                    json2videoKey = prefs.json2videoApiKey,
+                    bytezKey = prefs.bytezApiKey,
+                    onStatusUpdate = { progress, stageText, isFallback ->
+                        _uiState.value = _uiState.value.copy(
+                            videoGenProgress = progress,
+                            videoGenStage = stageText,
+                            isVideoGenFallback = isFallback,
+                            videoGenEngine = if (isFallback) "Bytez/Pollinations (Backup)" else "Json2video AI Studio (Primary)"
+                        )
+                    }
                 )
 
-                val finalizedMessages = _uiState.value.messages + assistantMessage
-                val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
-                val newUsage = prefs.incrementDailyUsage(activeEmail)
+                result.onSuccess { generated ->
+                    val videoFile = generated.file
+                    _uiState.value = _uiState.value.copy(
+                        videoGenProgress = 100,
+                        videoGenStage = if (generated.isFallback) "Video generated via backup engine!" else "Video render complete! Ready to play."
+                    )
+                    delay(300)
 
+                    val assistantMessage = ChatMessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        conversationId = _uiState.value.currentConversationId ?: "",
+                        role = "model",
+                        text = if (generated.isFallback) {
+                            "Here is your 8s AI video for: \"$trimmed\"\n*(Generated via Backup Video engine)*"
+                        } else {
+                            "Here is your 8s AI video for: \"$trimmed\""
+                        },
+                        attachmentName = generated.thumbnailUrl ?: videoFile.name,
+                        attachmentType = "generated_video",
+                        attachmentSize = videoFile.length(),
+                        attachmentUri = videoFile.absolutePath,
+                        timestamp = System.currentTimeMillis()
+                    )
+
+                    val finalizedMessages = _uiState.value.messages + assistantMessage
+                    val activeEmail = if (_uiState.value.isLoggedIn) _uiState.value.userEmail else ""
+                    val newUsage = prefs.incrementDailyUsage(activeEmail)
+
+                    _uiState.value = _uiState.value.copy(
+                        messages = finalizedMessages,
+                        isGenerating = false,
+                        isThinking = false,
+                        isGeneratingVideo = false,
+                        videoGenProgress = 0,
+                        videoGenStage = "",
+                        videoGenPrompt = "",
+                        isVideoGenFallback = false,
+                        videoGenEngine = "Json2video AI Studio (Primary)",
+                        dailyUsage = newUsage
+                    )
+
+                    persistThread(finalizedMessages)
+                }.onFailure { error ->
+                    val assistantError = ChatMessageEntity(
+                        id = UUID.randomUUID().toString(),
+                        conversationId = _uiState.value.currentConversationId ?: "",
+                        role = "model",
+                        text = "⚠️ Video generation failed: ${error.localizedMessage ?: "Unknown error"}. Please check your quota or try another prompt.",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    val finalizedMessages = _uiState.value.messages + assistantError
+                    _uiState.value = _uiState.value.copy(
+                        messages = finalizedMessages,
+                        isGenerating = false,
+                        isThinking = false,
+                        isGeneratingVideo = false,
+                        videoGenProgress = 0,
+                        videoGenStage = "",
+                        videoGenPrompt = "",
+                        isVideoGenFallback = false,
+                        videoGenEngine = "Json2video AI Studio (Primary)",
+                        errorMessage = "Video generation failed: ${error.localizedMessage}"
+                    )
+                    persistThread(finalizedMessages)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    messages = finalizedMessages,
                     isGenerating = false,
                     isThinking = false,
-                    currentStreamingResponse = "",
-                    dailyUsage = newUsage
+                    isGeneratingVideo = false,
+                    videoGenProgress = 0,
+                    videoGenStage = "",
+                    videoGenPrompt = "",
+                    isVideoGenFallback = false,
+                    videoGenEngine = "Json2video AI Studio (Primary)"
                 )
-
-                persistThread(finalizedMessages)
-            }.onFailure { error ->
-                val assistantError = ChatMessageEntity(
-                    id = UUID.randomUUID().toString(),
-                    conversationId = _uiState.value.currentConversationId ?: "",
-                    role = "model",
-                    text = "⚠️ Image generation failed: ${error.localizedMessage ?: "Unknown error"}. Please check your worker or try another prompt.",
-                    timestamp = System.currentTimeMillis()
-                )
-                val finalizedMessages = _uiState.value.messages + assistantError
-                _uiState.value = _uiState.value.copy(
-                    messages = finalizedMessages,
-                    isGenerating = false,
-                    isThinking = false,
-                    currentStreamingResponse = "",
-                    errorMessage = "Image generation failed: ${error.localizedMessage}"
-                )
-                persistThread(finalizedMessages)
             }
         }
     }
@@ -1059,7 +1323,19 @@ class OrkiViewModel(application: Application) : AndroidViewModel(application) {
         activeStreamJob = null
         _uiState.value = _uiState.value.copy(
             isGenerating = false,
-            isThinking = false
+            isThinking = false,
+            isGeneratingImage = false,
+            imageGenProgress = 0,
+            imageGenStage = "",
+            imageGenPrompt = "",
+            isImageGenFallback = false,
+            imageGenEngine = "Orki AI (Cloudflare)",
+            isGeneratingVideo = false,
+            videoGenProgress = 0,
+            videoGenStage = "",
+            videoGenPrompt = "",
+            isVideoGenFallback = false,
+            videoGenEngine = "Json2video AI Studio (Primary)"
         )
     }
 

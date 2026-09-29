@@ -159,6 +159,18 @@ class UserPreferences(context: Context) {
         get() = prefs.getString("image_api_key", "Orki-Image-7xP6-kQ9m-81vL") ?: "Orki-Image-7xP6-kQ9m-81vL"
         set(value) = prefs.edit().putString("image_api_key", value).apply()
 
+    var pollinationsApiKey: String
+        get() = prefs.getString("pollinations_api_key", "sk_hFioWQ0q0wuc9SIncnI0Rm5mxTnrJS7o") ?: "sk_hFioWQ0q0wuc9SIncnI0Rm5mxTnrJS7o"
+        set(value) = prefs.edit().putString("pollinations_api_key", value).apply()
+
+    var json2videoApiKey: String
+        get() = prefs.getString("json2video_api_key", "I8Itv4pfonHZVqocfclctU8fb6KPkfv53Cydyq4w") ?: "I8Itv4pfonHZVqocfclctU8fb6KPkfv53Cydyq4w"
+        set(value) = prefs.edit().putString("json2video_api_key", value).apply()
+
+    var bytezApiKey: String
+        get() = prefs.getString("bytez_api_key", "f55b5eec8d31941b10043200c79e8b51") ?: "f55b5eec8d31941b10043200c79e8b51"
+        set(value) = prefs.edit().putString("bytez_api_key", value).apply()
+
     var userEmail: String
         get() = if (isLoggedIn) (prefs.getString("user_email", "") ?: "") else ""
         set(value) = prefs.edit().putString("user_email", value).apply()

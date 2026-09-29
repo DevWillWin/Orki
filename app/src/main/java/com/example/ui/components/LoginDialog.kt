@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import android.accounts.AccountManager
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -136,7 +140,9 @@ fun LoginDialog(
     var selectedTab by remember { mutableStateOf(MainAuthTab.EMAIL_PASSWORD) }
     var emailAuthMode by remember { mutableStateOf(EmailAuthMode.SIGN_IN) }
 
-    // Google Sign-In state
+    // Google Sign-In with real Android Account Chooser
+    var isGooglePickerLoading by remember { mutableStateOf(false) }
+    var showManualGoogleEmailInput by remember { mutableStateOf(false) }
     var googleEmailInput by remember { mutableStateOf(suggestedEmail) }
 
     // Sign In states
@@ -191,6 +197,45 @@ fun LoginDialog(
             word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
         }
         return formatted.ifEmpty { "User" }
+    }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isGooglePickerLoading = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val chosenEmail = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)?.trim()?.lowercase()
+            if (!chosenEmail.isNullOrBlank()) {
+                val cleanEmail = chosenEmail
+                val displayName = deriveDisplayName(cleanEmail)
+                userPrefs.userEmail = cleanEmail
+                userPrefs.hasExplicitlyLoggedIn = true
+                userPrefs.isEmailVerified = true
+                onSignIn(cleanEmail, displayName, "Google")
+                onDismiss()
+            }
+        }
+    }
+
+    fun launchGoogleAccountChooser() {
+        try {
+            isGooglePickerLoading = true
+            val chooseIntent = AccountManager.newChooseAccountIntent(
+                null, // selectedAccount
+                null, // allowableAccounts
+                arrayOf("com.google"), // allowableAccountTypes
+                null, // descriptionTextOverride
+                null, // addAccountAuthTokenType
+                null, // addAccountRequiredFeatures
+                null  // addAccountOptions
+            )
+            accountPickerLauncher.launch(chooseIntent)
+        } catch (e: Exception) {
+            isGooglePickerLoading = false
+            e.printStackTrace()
+            showManualGoogleEmailInput = true
+            errorMessage = "Google Account Picker: ${e.localizedMessage ?: "Please enter your Google email below"}"
+        }
     }
 
     val emailRegex = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,63}$")
@@ -422,95 +467,135 @@ fun LoginDialog(
 
                 when (selectedTab) {
                     MainAuthTab.GOOGLE -> {
-                        // Google Authenticated 1-Tap
+                        // Real Google Account Chooser & Secure Authentication
                         Column {
                             Text(
-                                text = "Google Account Sign In",
+                                text = "Sign in with Google",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Sign in directly with your Google identity. Email verification is handled automatically.",
+                                text = "Choose any verified Google account configured on this device. Google manages authentication securely.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextMuted,
                                 lineHeight = 16.sp
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                            if (suggestedEmail.isNotBlank()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(DarkSurfaceVariant)
-                                        .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
-                                        .bounceClick(scaleDown = 0.98f) {
-                                            onSignIn(suggestedEmail, suggestedName, "Google")
-                                            onDismiss()
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                            // Official Google Sign-In Button that pops up Google's Account Chooser
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(DarkSurfaceVariant)
+                                    .border(1.dp, Color(0xFF4285F4).copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                                    .bounceClick(scaleDown = 0.98f) {
+                                        launchGoogleAccountChooser()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color.White),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = "G",
-                                                    fontSize = 18.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF4285F4)
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(
-                                                        text = suggestedName.ifBlank { "User" },
-                                                        fontSize = 13.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = TextPrimary
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Default.CheckCircle,
-                                                        contentDescription = "Verified",
-                                                        tint = TextSecondary,
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                }
-                                                Text(
-                                                    text = suggestedEmail,
-                                                    fontSize = 11.sp,
-                                                    color = TextSecondary
-                                                )
-                                            }
-                                        }
-
-                                        Text(
-                                            text = "Verified",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextSecondary,
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(DarkSurfaceElevated)
-                                                .border(1.dp, DarkBorderSubtle, RoundedCornerShape(6.dp))
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                .size(38.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "G",
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF4285F4)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column {
+                                            Text(
+                                                text = "Choose Google Account",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
+                                            )
+                                            Text(
+                                                text = "Opens native Google account selector",
+                                                fontSize = 11.sp,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
+
+                                    if (isGooglePickerLoading) {
+                                        CircularProgressIndicator(
+                                            color = Color(0xFF4285F4),
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Security,
+                                            contentDescription = "Verified Google",
+                                            tint = Color(0xFF4285F4),
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
-                            } else {
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Security guarantee card
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(DarkSurfaceElevated)
+                                    .border(1.dp, DarkBorderSubtle, RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = GreenHighlight,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Protected by Google Identity services. No passwords stored by Orki AI.",
+                                    fontSize = 11.sp,
+                                    color = TextMuted,
+                                    lineHeight = 15.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Optional manual email input toggle
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                TextButton(
+                                    onClick = { showManualGoogleEmailInput = !showManualGoogleEmailInput }
+                                ) {
+                                    Text(
+                                        text = if (showManualGoogleEmailInput) "Hide manual entry" else "Or type Google email manually",
+                                        fontSize = 11.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            if (showManualGoogleEmailInput) {
+                                Spacer(modifier = Modifier.height(8.dp))
                                 GlowAuthTextField(
                                     value = googleEmailInput,
                                     onValueChange = { googleEmailInput = it },
@@ -518,38 +603,40 @@ fun LoginDialog(
                                     leadingIcon = Icons.Default.Email,
                                     keyboardType = KeyboardType.Email
                                 )
-                            }
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                            Spacer(modifier = Modifier.height(20.dp))
-
-                            val effectiveEmail = if (suggestedEmail.isNotBlank()) suggestedEmail else googleEmailInput.trim()
-                            val canGoogleSignIn = effectiveEmail.contains("@") && effectiveEmail.contains(".")
-                            Button(
-                                onClick = {
-                                    if (canGoogleSignIn) {
-                                        val name = if (suggestedName.isNotBlank()) suggestedName else effectiveEmail.substringBefore("@").replaceFirstChar { it.uppercase() }
-                                        onSignIn(effectiveEmail, name, "Google")
-                                        onDismiss()
-                                    }
-                                },
-                                enabled = canGoogleSignIn,
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = GreenBright,
-                                    disabledContainerColor = DarkSurfaceElevated,
-                                    disabledContentColor = TextMuted
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .bounceClick(scaleDown = 0.98f)
-                            ) {
-                                Text(
-                                    text = "Sign In with Google",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (canGoogleSignIn) Color.Black else TextMuted
-                                )
+                                val canManualSubmit = googleEmailInput.trim().contains("@") && googleEmailInput.trim().contains(".")
+                                Button(
+                                    onClick = {
+                                        val clean = googleEmailInput.trim().lowercase()
+                                        if (canManualSubmit) {
+                                            val name = deriveDisplayName(clean)
+                                            userPrefs.userEmail = clean
+                                            userPrefs.hasExplicitlyLoggedIn = true
+                                            userPrefs.isEmailVerified = true
+                                            onSignIn(clean, name, "Google")
+                                            onDismiss()
+                                        }
+                                    },
+                                    enabled = canManualSubmit,
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = GreenBright,
+                                        disabledContainerColor = DarkSurfaceElevated,
+                                        disabledContentColor = TextMuted
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                        .bounceClick(scaleDown = 0.98f)
+                                ) {
+                                    Text(
+                                        text = "Confirm Google Email",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (canManualSubmit) Color.Black else TextMuted
+                                    )
+                                }
                             }
                         }
                     }

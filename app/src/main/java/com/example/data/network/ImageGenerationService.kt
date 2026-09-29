@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,8 +17,15 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.net.URLEncoder
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
+data class GeneratedImageFile(
+    val file: File,
+    val engineName: String,
+    val isFallback: Boolean = false
+)
 
 class ImageGenerationService(private val context: Context) {
 
@@ -30,11 +38,19 @@ class ImageGenerationService(private val context: Context) {
     suspend fun generateImage(
         prompt: String,
         workerUrl: String = "https://orki-img-gen.devmightwin.workers.dev",
-        apiKey: String = "Orki-Image-7xP6-kQ9m-81vL"
-    ): Result<File> = withContext(Dispatchers.IO) {
+        apiKey: String = "Orki-Image-7xP6-kQ9m-81vL",
+        pollinationsKey: String = "sk_hFioWQ0q0wuc9SIncnI0Rm5mxTnrJS7o",
+        onStatusUpdate: ((stage: String, isFallback: Boolean) -> Unit)? = null
+    ): Result<GeneratedImageFile> = withContext(Dispatchers.IO) {
+        val trimmedPrompt = prompt.trim()
+        var cloudflareError: String? = null
+
+        // 1. Try Primary Engine: Cloudflare Worker
         try {
+            onStatusUpdate?.invoke("Connecting to Orki AI Worker (Cloudflare)...", false)
+
             val json = JSONObject()
-                .put("prompt", prompt.trim())
+                .put("prompt", trimmedPrompt)
                 .toString()
 
             val normalizedUrl = if (workerUrl.startsWith("http://") || workerUrl.startsWith("https://")) {
@@ -49,7 +65,7 @@ class ImageGenerationService(private val context: Context) {
                 .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
 
-            httpClient.newCall(request).execute().use { response ->
+            val cfResult: File? = httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string() ?: "HTTP ${response.code}"
                     val cleanError = try {
@@ -65,40 +81,95 @@ class ImageGenerationService(private val context: Context) {
                     } catch (_: Exception) {
                         errorBody
                     }
-
-                    val diagnosticHint = if (cleanError.contains("Cannot read properties of undefined (reading 'run')")) {
-                        "\n\n👉 Fix for Cloudflare Worker:\nYour worker script called `env.AI.run(...)`, but the Workers AI binding is not bound! In your Cloudflare Dashboard > Workers & Pages > orki-img-gen > Settings > Variables & Bindings, add a 'Workers AI' binding named 'AI' (or add `[ai]\\nbinding = \"AI\"` to your wrangler.toml) and redeploy."
-                    } else ""
-
-                    return@withContext Result.failure(Exception("$cleanError$diagnosticHint"))
+                    cloudflareError = "HTTP ${response.code} ($cleanError)"
+                    return@use null
                 }
 
                 val imageBytes = response.body?.bytes()
-                    ?: return@withContext Result.failure(Exception("Empty image response from server"))
+                if (imageBytes == null || imageBytes.isEmpty()) {
+                    cloudflareError = "Empty response body from Cloudflare Worker"
+                    return@use null
+                }
 
-                // Verify valid bitmap format
                 val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                    ?: return@withContext Result.failure(Exception("Couldn't read the generated image data"))
-
-                // Save to local cache directory for fast instant rendering in UI
-                val imageDir = File(context.cacheDir, "generated_images")
-                if (!imageDir.exists()) {
-                    imageDir.mkdirs()
+                if (bitmap == null) {
+                    cloudflareError = "Failed to decode image bytes from Cloudflare Worker"
+                    return@use null
                 }
 
-                val fileName = "orki_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.png"
-                val imageFile = File(imageDir, fileName)
-                FileOutputStream(imageFile).use { out ->
-                    out.write(imageBytes)
-                    out.flush()
-                }
+                saveToCache(imageBytes, "orki_cf")
+            }
 
-                Result.success(imageFile)
+            if (cfResult != null) {
+                return@withContext Result.success(
+                    GeneratedImageFile(
+                        file = cfResult,
+                        engineName = "Orki AI (Cloudflare)",
+                        isFallback = false
+                    )
+                )
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Result.failure(Exception(e.localizedMessage ?: "Network error during image generation"))
+            cloudflareError = e.localizedMessage ?: "Cloudflare network connection error"
         }
+
+        // 2. Primary Engine Failed or Limit Reached -> Automatic Fallback to Pollinations AI
+        Log.w("ImageGenerationService", "Primary Cloudflare Worker failed: $cloudflareError. Switching to Pollinations AI fallback...")
+        onStatusUpdate?.invoke("Cloudflare limit reached. Switching to Pollinations AI backup...", true)
+
+        try {
+            val encodedPrompt = URLEncoder.encode(trimmedPrompt, "UTF-8")
+            val pollinationsUrl = "https://image.pollinations.ai/prompt/$encodedPrompt?width=1024&height=1024&nologo=true&seed=${System.currentTimeMillis() % 100000}"
+
+            val pollRequestBuilder = Request.Builder()
+                .url(pollinationsUrl)
+
+            if (pollinationsKey.isNotBlank()) {
+                pollRequestBuilder.addHeader("Authorization", "Bearer $pollinationsKey")
+            }
+
+            val fallbackFile: File = httpClient.newCall(pollRequestBuilder.build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val pollError = response.body?.string() ?: "HTTP ${response.code}"
+                    throw Exception("Fallback Pollinations AI failed: HTTP ${response.code} ($pollError). Primary Cloudflare error: $cloudflareError")
+                }
+
+                val imageBytes = response.body?.bytes()
+                    ?: throw Exception("Empty image response from fallback Pollinations AI")
+
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    ?: throw Exception("Could not decode image bytes from Pollinations AI")
+
+                saveToCache(imageBytes, "orki_pollinations")
+            }
+
+            return@withContext Result.success(
+                GeneratedImageFile(
+                    file = fallbackFile,
+                    engineName = "Pollinations AI (Backup)",
+                    isFallback = true
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            val finalMsg = "Image generation failed on both services:\n• Cloudflare Worker: ${cloudflareError ?: "Failed/Quota exceeded"}\n• Pollinations AI: ${e.localizedMessage ?: "Network error"}"
+            return@withContext Result.failure(Exception(finalMsg))
+        }
+    }
+
+    private fun saveToCache(imageBytes: ByteArray, prefix: String): File {
+        val imageDir = File(context.cacheDir, "generated_images")
+        if (!imageDir.exists()) {
+            imageDir.mkdirs()
+        }
+        val fileName = "${prefix}_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(6)}.png"
+        val imageFile = File(imageDir, fileName)
+        FileOutputStream(imageFile).use { out ->
+            out.write(imageBytes)
+            out.flush()
+        }
+        return imageFile
     }
 
     suspend fun saveImageToGallery(imageFile: File, title: String = "Orki AI Generated Image"): Result<Uri> = withContext(Dispatchers.IO) {

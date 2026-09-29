@@ -99,6 +99,8 @@ import com.example.ui.components.AttachmentPickerDialog
 import com.example.ui.components.AudioPlayerPill
 import com.example.ui.components.ChatMessageItem
 import com.example.ui.components.DrawerContent
+import com.example.ui.components.ImageGenProgressCard
+import com.example.ui.components.VideoGenProgressCard
 import com.example.ui.components.LiveTalkOverlay
 import com.example.ui.components.LoginDialog
 import com.example.ui.components.SettingsDialog
@@ -191,9 +193,12 @@ fun MainChatScreen(
         }
     }
 
-    // Scroll to bottom when new messages arrive or when response streams
-    LaunchedEffect(uiState.messages.size, uiState.currentStreamingResponse) {
-        val totalCount = uiState.messages.size + if (uiState.currentStreamingResponse.isNotEmpty()) 1 else 0
+    // Scroll to bottom when new messages arrive or when response streams or image/video is generating
+    LaunchedEffect(uiState.messages.size, uiState.currentStreamingResponse, uiState.isGeneratingImage, uiState.isGeneratingVideo) {
+        val totalCount = uiState.messages.size +
+            (if (uiState.currentStreamingResponse.isNotEmpty()) 1 else 0) +
+            (if (uiState.isGeneratingImage) 1 else 0) +
+            (if (uiState.isGeneratingVideo) 1 else 0)
         if (totalCount > 0) {
             listState.animateScrollToItem(totalCount - 1)
         }
@@ -902,6 +907,34 @@ fun MainChatScreen(
                             }
                         }
 
+                        // Real-time AI Image Generation Card with live progress percentage
+                        if (uiState.isGeneratingImage) {
+                            item(key = "image_gen_progress") {
+                                ImageGenProgressCard(
+                                    prompt = uiState.imageGenPrompt,
+                                    progress = uiState.imageGenProgress,
+                                    stage = uiState.imageGenStage,
+                                    engineName = uiState.imageGenEngine,
+                                    isFallback = uiState.isImageGenFallback,
+                                    onCancel = { viewModel.cancelGeneration() }
+                                )
+                            }
+                        }
+
+                        // Real-time AI Video Generation Card with live progress percentage
+                        if (uiState.isGeneratingVideo) {
+                            item(key = "video_gen_progress") {
+                                VideoGenProgressCard(
+                                    prompt = uiState.videoGenPrompt,
+                                    progress = uiState.videoGenProgress,
+                                    stage = uiState.videoGenStage,
+                                    engineName = uiState.videoGenEngine,
+                                    isFallback = uiState.isVideoGenFallback,
+                                    onCancel = { viewModel.cancelGeneration() }
+                                )
+                            }
+                        }
+
                         // Thinking Indicator
                         if (uiState.isThinking && uiState.currentStreamingResponse.isEmpty()) {
                             item {
@@ -1041,16 +1074,9 @@ fun MainChatScreen(
                 isImageGenMode = true
             },
             onVideoCreationClick = {
-                val isGuest = uiState.currentPlan == "Guest" || !uiState.isLoggedIn
-                if (isGuest) {
-                    showLoginDialog = true
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Guests cannot create videos. Sign in or create an account to unlock video creations!")
-                    }
-                } else {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("AI Video generation is in development for Pro members.")
-                    }
+                inputText = "/video "
+                scope.launch {
+                    snackbarHostState.showSnackbar("🎬 Type your prompt after /video and tap Send to render an 8s video!")
                 }
             },
             onDismiss = { showAttachMenu = false },

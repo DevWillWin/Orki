@@ -200,6 +200,16 @@ fun ChatMessageItem(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
+            // If assistant generated a video, display the video card
+            if (message.attachmentUri != null && message.attachmentType == "generated_video") {
+                GeneratedVideoAssistantCard(
+                    videoUri = message.attachmentUri,
+                    thumbnailUrl = message.attachmentName,
+                    prompt = message.text
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Message text body formatted with clean typography
             val formattedText = formatMarkdownText(message.text)
             Text(
